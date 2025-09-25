@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="HablaBot - AI-powered Spanish conversation practice with voice interaction">
+    <meta name="theme-color" content="#e74c3c">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="HablaBot">
+    
+    <title>HablaBot - Spanish Conversation Tutor</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    
+    <!-- Favicon and Icons -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/icon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/assets/icons/icon-16x16.png">
+    <link rel="apple-touch-icon" href="/assets/icons/icon-192x192.png">
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/css/mobile.css">
+    <link rel="stylesheet" href="/css/animations.css">
+    
+    <!-- Preload critical resources -->
+    <link rel="preload" href="/js/app.js" as="script">
+    <link rel="preload" href="/js/utils/config.js" as="script">
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="loading-screen">
+        <div class="loading-content">
+            <div class="logo">
+                <h1>HablaBot</h1>
+                <p>Loading your Spanish tutor...</p>
+            </div>
+            <div class="loading-spinner"></div>
+        </div>
+    </div>
+
+    <!-- Main App Container -->
+    <div id="app-container" class="app-container" hidden>
+        <!-- App Header -->
+        <header class="app-header">
+            <div class="header-content">
+                <h1 class="app-title">HablaBot</h1>
+                <nav class="main-nav">
+                    <button id="conversation-btn" class="nav-btn active" data-view="conversation">
+                        <span class="nav-icon">💬</span>
+                        <span class="nav-label">Conversation</span>
+                    </button>
+                    <button id="vocabulary-btn" class="nav-btn" data-view="vocabulary">
+                        <span class="nav-icon">📚</span>
+                        <span class="nav-label">Vocabulary</span>
+                    </button>
+                    <button id="progress-btn" class="nav-btn" data-view="progress">
+                        <span class="nav-icon">📊</span>
+                        <span class="nav-label">Progress</span>
+                    </button>
+                    <button id="settings-btn" class="nav-btn" data-view="settings">
+                        <span class="nav-icon">⚙️</span>
+                        <span class="nav-label">Settings</span>
+                    </button>
+                </nav>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="app-main">
+            <!-- Conversation View -->
+            <section id="conversation-view" class="view active">
+                <!-- Conversation Setup -->
+                <div class="conversation-setup">
+                    <h2>Start a Conversation</h2>
+                    <div class="setup-options">
+                        <div class="option-group">
+                            <label for="scenario-select">Conversation Scenario:</label>
+                            <select id="scenario-select" class="scenario-select">
+                                <option value="restaurant">🍽️ Restaurant</option>
+                                <option value="travel">✈️ Travel</option>
+                                <option value="shopping">🛍️ Shopping</option>
+                                <option value="family">👨‍👩‍👧‍👦 Family</option>
+                                <option value="work">💼 Work</option>
+                                <option value="health">🏥 Health</option>
+                                <option value="emergency">🚨 Emergency</option>
+                            </select>
+                        </div>
+                        
+                        <div class="option-group">
+                            <label for="session-length">Session Length: <span id="session-length-display">15</span> minutes</label>
+                            <input type="range" id="session-length" class="session-length-slider" 
+                                   min="5" max="30" value="15" step="5">
+                        </div>
+                        
+                        <div class="option-group">
+                            <label for="difficulty-select">Difficulty Level:</label>
+                            <select id="difficulty-select" class="difficulty-select">
+                                <option value="beginner">🌱 Beginner</option>
+                                <option value="intermediate">🌿 Intermediate</option>
+                                <option value="advanced">🌳 Advanced</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <button id="start-conversation" class="start-conversation-btn">
+                        <span class="btn-icon">🎯</span>
+                        Start Conversation
+                    </button>
+                </div>
+
+                <!-- Active Conversation -->
+                <div id="conversation-active" class="conversation-active" hidden>
+                    <!-- Conversation History -->
+                    <div class="conversation-history" id="conversation-history">
+                        <!-- Messages will be dynamically added here -->
+                    </div>
+
+                    <!-- Current Interaction Area -->
+                    <div class="current-state">
+                        <!-- AI Speaking State -->
+                        <div id="ai-speaking" class="ai-speaking" hidden>
+                            <div class="speaker-info">
+                                <span class="speaker-label">María:</span>
+                                <div class="speaking-indicator">
+                                    <div class="wave"></div>
+                                    <div class="wave"></div>
+                                    <div class="wave"></div>
+                                </div>
+                            </div>
+                            <p id="ai-text" class="ai-text"></p>
+                        </div>
+
+                        <!-- User Input Area -->
+                        <div class="user-input">
+                            <button id="push-to-talk" class="talk-button">
+                                <span class="mic-icon">🎤</span>
+                                <span class="talk-text">Hold to Speak</span>
+                            </button>
+                            
+                            <div class="speech-feedback">
+                                <div id="listening-indicator" class="listening-indicator" hidden>
+                                    <div class="pulse"></div>
+                                    <span>Listening...</span>
+                                </div>
+                                <div id="processing-indicator" class="processing-indicator" hidden>
+                                    <div class="spinner"></div>
+                                    <span>Processing...</span>
+                                </div>
+                                <p id="user-speech-text" class="user-speech-text"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Session Controls -->
+                    <div class="session-controls">
+                        <div class="control-buttons">
+                            <button id="pause-session" class="control-btn">
+                                <span class="btn-icon">⏸️</span>
+                                Pause
+                            </button>
+                            <button id="end-session" class="control-btn end-btn">
+                                <span class="btn-icon">⏹️</span>
+                                End Session
+                            </button>
+                        </div>
+                        
+                        <div class="session-progress">
+                            <div class="progress-info">
+                                <span id="words-practiced" class="words-practiced">0/5 words</span>
+                                <span id="time-remaining" class="time-remaining">15:00</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div id="progress-fill" class="progress-fill"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Vocabulary View -->
+            <section id="vocabulary-view" class="view" hidden>
+                <h2>Vocabulary Manager</h2>
+                <div class="vocabulary-content">
+                    <div class="vocabulary-controls">
+                        <button id="add-word-btn" class="primary-btn">Add New Word</button>
+                        <button id="import-vocab-btn" class="secondary-btn">Import CSV</button>
+                        <button id="export-vocab-btn" class="secondary-btn">Export Data</button>
+                    </div>
+                    
+                    <div class="vocabulary-filters">
+                        <input type="search" id="vocab-search" placeholder="Search vocabulary...">
+                        <select id="category-filter">
+                            <option value="">All Categories</option>
+                            <option value="food">Food</option>
+                            <option value="travel">Travel</option>
+                            <option value="family">Family</option>
+                            <option value="work">Work</option>
+                        </select>
+                        <select id="difficulty-filter">
+                            <option value="">All Difficulties</option>
+                            <option value="1">Beginner</option>
+                            <option value="2">Elementary</option>
+                            <option value="3">Intermediate</option>
+                            <option value="4">Advanced</option>
+                            <option value="5">Expert</option>
+                        </select>
+                    </div>
+                    
+                    <div id="vocabulary-list" class="vocabulary-list">
+                        <!-- Vocabulary items will be dynamically loaded here -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Progress View -->
+            <section id="progress-view" class="view" hidden>
+                <h2>Learning Progress</h2>
+                <div class="progress-content">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <h3>Total Words</h3>
+                            <span id="total-words-stat" class="stat-number">0</span>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Words Mastered</h3>
+                            <span id="mastered-words-stat" class="stat-number">0</span>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Conversation Time</h3>
+                            <span id="conversation-time-stat" class="stat-number">0h</span>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Current Streak</h3>
+                            <span id="streak-stat" class="stat-number">0</span>
+                        </div>
+                    </div>
+                    
+                    <div class="progress-charts">
+                        <div class="chart-container">
+                            <h3>Daily Progress</h3>
+                            <canvas id="daily-progress-chart"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <h3>Vocabulary Mastery</h3>
+                            <canvas id="mastery-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Settings View -->
+            <section id="settings-view" class="view" hidden>
+                <h2>Settings</h2>
+                <div class="settings-content">
+                    <div class="settings-group">
+                        <h3>User Profile</h3>
+                        <div class="setting-item">
+                            <label>Current User:</label>
+                            <div id="current-user-display" class="current-user-display">
+                                <span id="current-user-avatar">👤</span>
+                                <span id="current-user-name">No user selected</span>
+                            </div>
+                            <button id="select-user-btn" class="secondary-btn">Select User</button>
+                        </div>
+                        <div class="setting-item">
+                            <label>Manage Users:</label>
+                            <div class="user-management-buttons">
+                                <button id="create-user-btn" class="secondary-btn">Create New User</button>
+                                <button id="delete-user-btn" class="danger-btn">Delete Current User</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <h3>API Configuration</h3>
+                        <div class="setting-item">
+                            <label for="openai-api-key">OpenAI API Key:</label>
+                            <input type="password" id="openai-api-key" placeholder="sk-...">
+                            <button id="test-api-key" class="test-btn">Test</button>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-group">
+                        <h3>Voice Settings</h3>
+                        <div class="setting-item">
+                            <label for="voice-select">Spanish Voice:</label>
+                            <select id="voice-select">
+                                <!-- Voices will be populated dynamically -->
+                            </select>
+                        </div>
+                        <div class="setting-item">
+                            <label for="speech-rate">Speech Rate:</label>
+                            <input type="range" id="speech-rate" min="0.5" max="2" step="0.1" value="0.9">
+                            <span id="speech-rate-value">0.9x</span>
+                        </div>
+                        <div class="setting-item">
+                            <label for="speech-volume">Volume:</label>
+                            <input type="range" id="speech-volume" min="0" max="1" step="0.1" value="0.8">
+                            <span id="speech-volume-value">80%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-group">
+                        <h3>Learning Preferences</h3>
+                        <div class="setting-item">
+                            <label for="correction-frequency">Correction Frequency:</label>
+                            <select id="correction-frequency">
+                                <option value="immediate">Immediate</option>
+                                <option value="end-of-sentence">End of Sentence</option>
+                                <option value="end-of-conversation">End of Conversation</option>
+                            </select>
+                        </div>
+                        <div class="setting-item">
+                            <label for="new-words-per-session">New Words per Session:</label>
+                            <input type="number" id="new-words-per-session" min="1" max="10" value="5">
+                        </div>
+                    </div>
+                    
+                    <div class="settings-group">
+                        <h3>Data Management</h3>
+                        <button id="export-all-data" class="secondary-btn">Export All Data</button>
+                        <button id="import-data" class="secondary-btn">Import Data</button>
+                        <button id="clear-all-data" class="danger-btn">Clear All Data</button>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Modals and Overlays -->
+        <div id="modal-overlay" class="modal-overlay" hidden>
+            <div class="modal-content">
+                <button class="modal-close">&times;</button>
+                <div id="modal-body" class="modal-body">
+                    <!-- Modal content will be dynamically inserted here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast Notifications -->
+        <div id="toast-container" class="toast-container"></div>
+    </div>
+
+    <!-- First-time Setup Overlay -->
+    <div id="setup-overlay" class="setup-overlay" hidden>
+        <div class="setup-content">
+            <h2>Welcome to HablaBot!</h2>
+            <p>Let's get you set up for Spanish conversation practice.</p>
+            <div id="setup-steps" class="setup-steps">
+                <!-- Setup steps will be dynamically generated -->
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Modules -->
+    <script src="/js/utils/config.js"></script>
+    <script src="/js/utils/helpers.js"></script>
+    <script src="/js/utils/user-manager.js"></script>
+    <script src="/js/storage/database.js"></script>
+    <script src="/js/ui/state.js"></script>
+    <script src="/js/ui/components.js"></script>
+    <script src="/js/speech/recognition.js"></script>
+    <script src="/js/speech/synthesis.js"></script>
+    <script src="/js/ai/prompts.js"></script>
+    <script src="/js/ai/conversation.js"></script>
+    <script src="/js/vocabulary/spaced-repetition.js"></script>
+    <script src="/js/vocabulary/manager.js"></script>
+    <script src="/js/utils/audio.js"></script>
+    <script src="/js/app.js"></script>
+
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then((registration) => {
+                        console.log('SW registered: ', registration);
+                    })
+                    .catch((registrationError) => {
+                        console.log('SW registration failed: ', registrationError);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>
