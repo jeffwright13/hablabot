@@ -2,3 +2,7 @@ node_modules/
 .env
 .DS_Store
 *.log
+apikey.md
+*.env
+.env.local
+config/secrets.json
