@@ -126,7 +126,21 @@ class HablaBotApp {
           this.stopListening();
       }
     };
-    
+
+    // Handle speech recognition results
+    this.speechRecognition.onResult = (result) => {
+      console.log('Speech recognition result:', result);
+      this.handleSpeechResult(result);
+    };
+
+    // Handle interim results (optional, for real-time feedback)
+    this.speechRecognition.onInterimResult = (result) => {
+      console.log('Interim result:', result.transcript);
+      if (this.elements.userSpeechText) {
+        this.elements.userSpeechText.textContent = result.transcript;
+      }
+    };
+
     this.speechSynthesis = window.HablaBotSpeechSynthesis;
     this.speechSynthesis.init();
     
@@ -610,6 +624,29 @@ class HablaBotApp {
     }
   }
 
+  // Handle speech recognition results
+  handleSpeechResult(result) {
+    console.log('Processing speech result:', result.transcript);
+    
+    // Display the transcribed text
+    if (this.elements.userSpeechText) {
+      this.elements.userSpeechText.textContent = result.transcript;
+    }
+    
+    // Hide listening indicator
+    H.hide(this.elements.listeningIndicator);
+    
+    // Process the speech with AI (if in conversation mode)
+    if (this.currentSession) {
+      // For now, just show the transcribed text
+      console.log('User said:', result.transcript);
+      H.showToast(`You said: "${result.transcript}"`, 'info');
+      
+      // TODO: Add AI conversation processing here
+      // this.conversationEngine.processUserInput(result.transcript);
+    }
+  }    
+  
   // Add message to conversation history display
   addMessageToHistory(role, message) {
     if (!this.elements.conversationHistory) return;
@@ -659,9 +696,6 @@ class HablaBotApp {
       modalContent += `</div></div>`;
     }
 
-
-
-    
     // Add new user form
     modalContent += `
       <div class="new-user-section">

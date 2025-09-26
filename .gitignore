@@ -3,6 +3,7 @@ node_modules/
 .DS_Store
 *.log
 apikey.md
+api_key.md
 *.env
 .env.local
 config/secrets.json
