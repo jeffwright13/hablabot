@@ -134,11 +134,6 @@
 
                         <!-- User Input Area -->
                         <div class="user-input">
-                            <button id="push-to-talk" class="talk-button">
-                                <span class="mic-icon">🎤</span>
-                                <span class="talk-text">Hold to Speak</span>
-                            </button>
-                            
                             <div class="speech-feedback">
                                 <div id="listening-indicator" class="listening-indicator" hidden>
                                     <div class="pulse"></div>
@@ -156,10 +151,6 @@
                     <!-- Session Controls -->
                     <div class="session-controls">
                         <div class="control-buttons">
-                            <button id="pause-session" class="control-btn">
-                                <span class="btn-icon">⏸️</span>
-                                Pause
-                            </button>
                             <button id="end-session" class="control-btn end-btn">
                                 <span class="btn-icon">⏹️</span>
                                 End Session
@@ -359,8 +350,8 @@
     <script src="/js/storage/database.js"></script>
     <script src="/js/ui/state.js"></script>
     <script src="/js/ui/components.js"></script>
-    <script src="/js/speech/recognition.js"></script>
-    <script src="/js/speech/synthesis.js"></script>
+    <!-- speech/recognition.js and speech/synthesis.js replaced by realtime/session.js -->
+    <script src="/js/realtime/session.js"></script>
     <script src="/js/ai/prompts.js"></script>
     <script src="/js/ai/conversation.js"></script>
     <script src="/js/vocabulary/spaced-repetition.js"></script>

@@ -6,12 +6,11 @@ class HablaBotApp {
     this.currentSession = null;
     this.isFirstTime = false;
     this.conversationMode = 'idle';
-    
+
     // Component references
     this.config = null;
     this.database = null;
-    this.speechRecognition = null;
-    this.speechSynthesis = null;
+    this.realtimeSession = null;
     this.conversationEngine = null;
     this.vocabularyManager = null;
     this.spacedRepetition = null;
@@ -24,10 +23,7 @@ class HablaBotApp {
   }
 
   beginUserTurn() {
-    if (!this.currentSession) return;
-    if (!this.speechRecognition || !this.speechRecognition.isSupported) return;
-    if (this.speechSynthesis && this.speechSynthesis.isSpeaking) return;
-    this.startListening();
+    // No-op: turn detection is handled server-side by the Realtime API (VAD).
   }
 
   // Initialize the application
@@ -71,25 +67,18 @@ class HablaBotApp {
   // Check browser compatibility
   checkBrowserCompatibility() {
     const coreFeatures = ['indexedDB', 'serviceWorker'];
-    const speechFeatures = ['speechRecognition', 'speechSynthesis'];
-    
-    const missingCoreFeatures = coreFeatures.filter(feature => 
+
+    const missingCoreFeatures = coreFeatures.filter(feature =>
       !H.supportsFeature(feature)
     );
-    
-    const missingSpeechFeatures = speechFeatures.filter(feature => 
-      !H.supportsFeature(feature)
-    );
-    
+
     if (missingCoreFeatures.length > 0) {
       const message = `Your browser doesn't support core features: ${missingCoreFeatures.join(', ')}. Please use a modern browser like Chrome, Firefox, or Safari.`;
       throw new Error(message);
     }
-    
-    if (missingSpeechFeatures.length > 0) {
-      console.warn(`Speech features not supported: ${missingSpeechFeatures.join(', ')}. Some functionality may be limited.`);
-      H.showToast(`Speech features limited in this browser. For full functionality, use Chrome or Edge.`, 'warning', 5000);
-    }
+
+    // Audio is handled via the Realtime API — no Web Speech API required.
+    // getUserMedia is checked at session connect time.
   }
 
   // Initialize core components
@@ -102,71 +91,9 @@ class HablaBotApp {
     this.database = window.HablaBotDB;
     await this.database.init();
     
-    // Initialize speech components
-    this.speechRecognition = window.HablaBotSpeechRecognition;
-    this.speechRecognition.init();
-    
-    // Set up speech recognition error handling
-    this.speechRecognition.onError = (error) => {
-      console.warn('Speech recognition error:', error);
-      
-      // Handle different error types
-      switch (error.type) {
-        case 'network':
-          if (error.retriesExhausted) {
-            H.showToast('Speech recognition unavailable. Please check your internet connection.', 'warning', 5000);
-            this.stopListening();
-          } else {
-            // Show a subtle indicator that we're retrying
-            H.showToast('Reconnecting...', 'info', 2000);
-          }
-          break;
-        case 'not-allowed':
-          H.showToast('Microphone access denied. Please allow microphone access and try again.', 'error', 8000);
-          this.stopListening();
-          break;
-        case 'no-speech':
-          // Don't show error for no-speech, just stop listening
-          this.stopListening();
-          break;
-        default:
-          H.showToast(error.message, 'warning', 4000);
-          this.stopListening();
-      }
-    };
-
-    // Handle speech recognition results
-    this.speechRecognition.onResult = (result) => {
-      console.log('Speech recognition result:', result);
-      this.handleSpeechResult(result);
-    };
-
-    // Handle interim results (optional, for real-time feedback)
-    this.speechRecognition.onInterimResult = (result) => {
-      console.log('Interim result:', result.transcript);
-      if (this.elements.userSpeechText) {
-        this.elements.userSpeechText.textContent = result.transcript;
-      }
-    };
-
-    this.speechSynthesis = window.HablaBotSpeechSynthesis;
-    this.speechSynthesis.init();
-    this.speechSynthesis.onStart = () => {
-      if (!this.currentSession) return;
-      this.conversationMode = 'bot_speaking';
-      this.stopListening();
-      if (this.elements.aiSpeaking) {
-        H.show(this.elements.aiSpeaking);
-      }
-    };
-    this.speechSynthesis.onEnd = () => {
-      if (!this.currentSession) return;
-      this.conversationMode = 'waiting_for_user';
-      if (this.elements.aiSpeaking) {
-        H.hide(this.elements.aiSpeaking);
-      }
-      this.beginUserTurn();
-    };
+    // Initialize realtime session
+    this.realtimeSession = window.HablaBotRealtimeSession;
+    this.setupRealtimeCallbacks();
     
     // Initialize AI conversation engine
     this.conversationEngine = window.HablaBotConversation;
@@ -215,11 +142,9 @@ class HablaBotApp {
       conversationHistory: H.$('#conversation-history'),
       aiSpeaking: H.$('#ai-speaking'),
       aiText: H.$('#ai-text'),
-      pushToTalkBtn: H.$('#push-to-talk'),
       listeningIndicator: H.$('#listening-indicator'),
       processingIndicator: H.$('#processing-indicator'),
       userSpeechText: H.$('#user-speech-text'),
-      pauseSessionBtn: H.$('#pause-session'),
       endSessionBtn: H.$('#end-session'),
       wordsPracticed: H.$('#words-practiced'),
       timeRemaining: H.$('#time-remaining'),
@@ -272,29 +197,6 @@ class HablaBotApp {
     });
     
     // Active conversation controls
-    H.on(this.elements.pushToTalkBtn, 'mousedown', () => {
-      this.startListening();
-    });
-    
-    H.on(this.elements.pushToTalkBtn, 'mouseup', () => {
-      this.stopListening();
-    });
-    
-    H.on(this.elements.pushToTalkBtn, 'mouseleave', () => {
-      this.stopListening();
-    });
-    
-    // Touch events for mobile
-    H.on(this.elements.pushToTalkBtn, 'touchstart', (e) => {
-      e.preventDefault();
-      this.startListening();
-    });
-    
-    H.on(this.elements.pushToTalkBtn, 'touchend', (e) => {
-      e.preventDefault();
-      this.stopListening();
-    });
-    
     H.on(this.elements.endSessionBtn, 'click', () => {
       this.endConversation();
     });
@@ -478,16 +380,21 @@ class HablaBotApp {
       H.hide(this.elements.conversationSetup);
       H.show(this.elements.conversationActive);
       
-      // Initialize conversation with AI
+      // Connect to the OpenAI Realtime API
+      const systemPrompt = window.HablaBotPrompts.generateSystemPrompt(
+        scenario, difficulty, []
+      );
       try {
-        await this.conversationEngine.startSession(this.currentSession);
+        await this.realtimeSession.connect(this.config.get('openaiApiKey'), {
+          instructions: systemPrompt,
+          voice: 'alloy',
+          autoGreet: true
+        });
       } catch (error) {
-        if (error.message && error.message.includes('401')) {
-          H.showToast('❌ Invalid API key. Please update your OpenAI API key in Settings.', 'error', 8000);
-          this.switchView('settings');
-          return;
-        }
-        throw error; // Re-throw other errors
+        // connect() already called onError and set status; just bail out of the UI change
+        H.show(this.elements.conversationSetup);
+        H.hide(this.elements.conversationActive);
+        return;
       }
             
       // Start session timer
@@ -515,10 +422,7 @@ class HablaBotApp {
       // Save session to database
       await this.database.saveConversationSession(this.currentSession);
       
-      this.stopListening();
-      if (this.speechSynthesis) {
-        this.speechSynthesis.stop();
-      }
+      this.realtimeSession.disconnect();
       this.conversationMode = 'idle';
       // Show setup again
       H.show(this.elements.conversationSetup);
@@ -538,54 +442,9 @@ class HablaBotApp {
     }
   }
 
-  // Start listening for speech
-  startListening() {
-    if (!this.currentSession) return;
-    
-    try {
-      // Check if speech recognition is available
-      if (!this.speechRecognition || !this.speechRecognition.isSupported) {
-        H.showToast('Speech recognition not available. Please type your response or use a supported browser.', 'warning');
-        return;
-      }
-      
-      // Update UI
-      H.addClass(this.elements.pushToTalkBtn, 'listening');
-      H.show(this.elements.listeningIndicator);
-      H.hide(this.elements.processingIndicator);
-      this.elements.userSpeechText.textContent = '';
-      
-      // Start speech recognition
-      this.speechRecognition.start();
-      
-    } catch (error) {
-      console.error('Failed to start listening:', error);
-      this.stopListening();
-    }
-  }
-
-  // Stop listening for speech
-  stopListening() {
-    try {
-      // Update UI
-      H.removeClass(this.elements.pushToTalkBtn, 'listening');
-      H.hide(this.elements.listeningIndicator);
-      H.hide(this.elements.processingIndicator);
-      
-      // Stop speech recognition
-      if (this.speechRecognition && this.speechRecognition.isSupported) {
-        this.speechRecognition.stop();
-      }
-      
-      // Show text input as fallback if speech recognition failed multiple times
-      if (this.speechRecognition && !this.speechRecognition.isSupported) {
-        this.showTextInputFallback();
-      }
-      
-    } catch (error) {
-      console.error('Failed to stop listening:', error);
-    }
-  }
+  // No-op: listening is handled continuously by the Realtime API (server-side VAD).
+  startListening() {}
+  stopListening() {}
 
   // Show text input fallback when speech recognition is not available
   showTextInputFallback() {
@@ -599,9 +458,9 @@ class HablaBotApp {
       </div>
     `;
     
-    const container = this.elements.pushToTalkBtn ? this.elements.pushToTalkBtn.parentElement : null;
+    const container = H.$('.speech-feedback');
     if (!container) {
-      console.warn('Unable to show text input fallback: push-to-talk container not found');
+      console.warn('Unable to show text input fallback: speech-feedback container not found');
       return;
     }
     container.innerHTML = fallbackHtml;
@@ -665,71 +524,72 @@ class HablaBotApp {
     }
   }
 
-  // Handle speech recognition results
-  handleSpeechResult(result) {
-    console.log('Processing speech result:', result.transcript);
-    
-    // Display the transcribed text
-    if (this.elements.userSpeechText) {
-      this.elements.userSpeechText.textContent = result.transcript;
-    }
-    
-    // Hide listening indicator
-    H.hide(this.elements.listeningIndicator);
-    
-    // Process the speech with AI (if in conversation mode)
-    if (this.currentSession) {
-      // Add user message to conversation history display
-      this.addMessageToHistory('user', result.transcript);
-      
-      // Show processing indicator
-      H.show(this.elements.processingIndicator);
-      
-      // Process with AI conversation engine
-      this.processUserSpeechWithAI(result.transcript, result.confidence);
-    } else {
-      // Not in conversation mode, just show what was said
-      H.showToast(`You said: "${result.transcript}"`, 'info');
-    }
-  }    
+  // No-op: speech results now arrive via Realtime API callbacks (onUserTranscript).
+  handleSpeechResult(result) {}
+  processUserSpeechWithAI(transcript, confidence) {}
 
-  // Process user speech with AI conversation engine
-  async processUserSpeechWithAI(transcript, confidence) {
-    try {
-      // Process with conversation engine
-      const result = await this.conversationEngine.processUserInput(transcript, confidence);
-      
-      if (result.success) {
-        // Add AI response to conversation history
-        this.addMessageToHistory('assistant', result.response);
-        
-        // Speak the AI response
-        if (this.speechSynthesis) {
-          this.speechSynthesis.speak(result.response, { rate: 0.8 });
-        }
-        
-        H.showToast('AI responded!', 'success', 2000);
+  // --- Realtime API integration ---
+
+  // Wire up all callbacks from the RealtimeSession to the UI.
+  setupRealtimeCallbacks() {
+    this.realtimeSession.onStatusChange = (status) => {
+      console.log('Realtime session status:', status);
+      if (status === 'error') {
+        H.showToast('Connection error. Please check your API key and network.', 'error');
       }
-      
-    } catch (error) {
-      console.error('Failed to process with AI:', error);
-      
-      // Check for specific API key errors
-      if (error.message && error.message.includes('401')) {
-        H.showToast('❌ Invalid API key. Please check your OpenAI API key in Settings.', 'error', 8000);
-        // Auto-switch to settings after a short delay
-        setTimeout(() => {
-          this.switchView('settings');
-        }, 2000);
-      } else if (error.message && error.message.includes('API key')) {
-        H.showToast('❌ API key error. Please verify your OpenAI API key in Settings.', 'error', 6000);
-      } else {
-        H.showToast('Failed to get AI response. Please try again.', 'error');
+    };
+
+    // VAD detected user started speaking — show listening indicator.
+    this.realtimeSession.onUserSpeechStart = () => {
+      if (this.elements.listeningIndicator) H.show(this.elements.listeningIndicator);
+      if (this.elements.processingIndicator) H.hide(this.elements.processingIndicator);
+    };
+
+    // VAD detected user stopped speaking.
+    this.realtimeSession.onUserSpeechEnd = () => {
+      if (this.elements.listeningIndicator) H.hide(this.elements.listeningIndicator);
+    };
+
+    // User's speech fully transcribed — add to conversation history.
+    this.realtimeSession.onUserTranscript = (text) => {
+      if (this.elements.userSpeechText) {
+        this.elements.userSpeechText.textContent = text;
       }
-    } finally {
-      H.hide(this.elements.processingIndicator);
-    }
-  } 
+      this.addMessageToHistory('user', text);
+    };
+
+    // AI transcript streaming in — update the live text display.
+    // When isFinal, commit it to the conversation history.
+    this.realtimeSession.onAITranscript = (text, isFinal) => {
+      if (this.elements.aiText) {
+        this.elements.aiText.textContent = text;
+      }
+      if (isFinal && text) {
+        this.addMessageToHistory('assistant', text);
+      }
+    };
+
+    // AI audio started — show the speaking indicator.
+    this.realtimeSession.onAIAudioStart = () => {
+      this.conversationMode = 'bot_speaking';
+      if (this.elements.aiSpeaking) H.show(this.elements.aiSpeaking);
+      if (this.elements.listeningIndicator) H.hide(this.elements.listeningIndicator);
+    };
+
+    // AI audio finished (or was interrupted) — hide the speaking indicator.
+    this.realtimeSession.onAIAudioEnd = () => {
+      this.conversationMode = 'waiting_for_user';
+      if (this.elements.aiSpeaking) H.hide(this.elements.aiSpeaking);
+    };
+
+    this.realtimeSession.onError = (message) => {
+      H.showToast(`❌ ${message}`, 'error', 6000);
+      if (message.includes('401') || message.toLowerCase().includes('invalid')) {
+        setTimeout(() => this.switchView('settings'), 2000);
+      }
+    };
+  }
+
 
 
   // Add message to conversation history display
@@ -950,9 +810,8 @@ class HablaBotApp {
   cleanup() {
     try {
       this.stopSessionTimer();
-      this.stopListening();
-      if (this.speechSynthesis) {
-        this.speechSynthesis.stop();
+      if (this.realtimeSession) {
+        this.realtimeSession.disconnect();
       }
     } catch (error) {
       console.error('Error during cleanup:', error);
@@ -1015,16 +874,6 @@ class HablaBotApp {
 
   // Handle keyboard shortcuts
   handleKeyboardShortcuts(event) {
-    // Space bar for push-to-talk (when in conversation)
-    if (event.code === 'Space' && this.currentView === 'conversation' && this.currentSession) {
-      event.preventDefault();
-      if (event.type === 'keydown') {
-        this.startListening();
-      } else if (event.type === 'keyup') {
-        this.stopListening();
-      }
-    }
-    
     // Escape to close modals
     if (event.code === 'Escape') {
       this.hideModal();

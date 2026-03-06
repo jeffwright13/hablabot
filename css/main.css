@@ -185,39 +185,6 @@ body {
   box-shadow: var(--shadow-lg);
 }
 
-/* Talk Button */
-.talk-button {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--spacing-sm);
-  width: 120px;
-  height: 120px;
-  background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
-  color: var(--white);
-  border: none;
-  border-radius: var(--border-radius-full);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  box-shadow: var(--shadow-lg);
-  margin: 0 auto;
-}
-
-.talk-button:hover {
-  transform: scale(1.05);
-}
-
-.talk-button.listening {
-  background: linear-gradient(135deg, var(--success-color), #229954);
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0% { box-shadow: 0 0 0 0 rgba(39, 174, 96, 0.7); }
-  70% { box-shadow: 0 0 0 10px rgba(39, 174, 96, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(39, 174, 96, 0); }
-}
 
 /* Buttons */
 .primary-btn {
