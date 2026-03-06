@@ -5,6 +5,7 @@ class HablaBotApp {
     this.currentView = 'conversation';
     this.currentSession = null;
     this.isFirstTime = false;
+    this.conversationMode = 'idle';
     
     // Component references
     this.config = null;
@@ -20,6 +21,13 @@ class HablaBotApp {
     
     // Event listeners
     this.eventListeners = new Map();
+  }
+
+  beginUserTurn() {
+    if (!this.currentSession) return;
+    if (!this.speechRecognition || !this.speechRecognition.isSupported) return;
+    if (this.speechSynthesis && this.speechSynthesis.isSpeaking) return;
+    this.startListening();
   }
 
   // Initialize the application
@@ -143,6 +151,22 @@ class HablaBotApp {
 
     this.speechSynthesis = window.HablaBotSpeechSynthesis;
     this.speechSynthesis.init();
+    this.speechSynthesis.onStart = () => {
+      if (!this.currentSession) return;
+      this.conversationMode = 'bot_speaking';
+      this.stopListening();
+      if (this.elements.aiSpeaking) {
+        H.show(this.elements.aiSpeaking);
+      }
+    };
+    this.speechSynthesis.onEnd = () => {
+      if (!this.currentSession) return;
+      this.conversationMode = 'waiting_for_user';
+      if (this.elements.aiSpeaking) {
+        H.hide(this.elements.aiSpeaking);
+      }
+      this.beginUserTurn();
+    };
     
     // Initialize AI conversation engine
     this.conversationEngine = window.HablaBotConversation;
@@ -455,8 +479,17 @@ class HablaBotApp {
       H.show(this.elements.conversationActive);
       
       // Initialize conversation with AI
-      // await this.conversationEngine.startSession(this.currentSession);
-      
+      try {
+        await this.conversationEngine.startSession(this.currentSession);
+      } catch (error) {
+        if (error.message && error.message.includes('401')) {
+          H.showToast('❌ Invalid API key. Please update your OpenAI API key in Settings.', 'error', 8000);
+          this.switchView('settings');
+          return;
+        }
+        throw error; // Re-throw other errors
+      }
+            
       // Start session timer
       this.startSessionTimer();
       
@@ -482,6 +515,11 @@ class HablaBotApp {
       // Save session to database
       await this.database.saveConversationSession(this.currentSession);
       
+      this.stopListening();
+      if (this.speechSynthesis) {
+        this.speechSynthesis.stop();
+      }
+      this.conversationMode = 'idle';
       // Show setup again
       H.show(this.elements.conversationSetup);
       H.hide(this.elements.conversationActive);
@@ -561,8 +599,11 @@ class HablaBotApp {
       </div>
     `;
     
-    // Show the fallback in place of the push-to-talk button
-    const container = this.elements.pushToTalkBtn.parentElement;
+    const container = this.elements.pushToTalkBtn ? this.elements.pushToTalkBtn.parentElement : null;
+    if (!container) {
+      console.warn('Unable to show text input fallback: push-to-talk container not found');
+      return;
+    }
     container.innerHTML = fallbackHtml;
     
     // Set up event listener for text submission
@@ -604,7 +645,7 @@ class HablaBotApp {
       
       // Speak the response if synthesis is available
       if (this.speechSynthesis && this.speechSynthesis.isSupported) {
-        this.speechSynthesis.speak(response.message);
+        this.speechSynthesis.speak(response.message, { rate: 0.8 });
       }
       
       // Update session data
@@ -638,15 +679,59 @@ class HablaBotApp {
     
     // Process the speech with AI (if in conversation mode)
     if (this.currentSession) {
-      // For now, just show the transcribed text
-      console.log('User said:', result.transcript);
-      H.showToast(`You said: "${result.transcript}"`, 'info');
+      // Add user message to conversation history display
+      this.addMessageToHistory('user', result.transcript);
       
-      // TODO: Add AI conversation processing here
-      // this.conversationEngine.processUserInput(result.transcript);
+      // Show processing indicator
+      H.show(this.elements.processingIndicator);
+      
+      // Process with AI conversation engine
+      this.processUserSpeechWithAI(result.transcript, result.confidence);
+    } else {
+      // Not in conversation mode, just show what was said
+      H.showToast(`You said: "${result.transcript}"`, 'info');
     }
   }    
-  
+
+  // Process user speech with AI conversation engine
+  async processUserSpeechWithAI(transcript, confidence) {
+    try {
+      // Process with conversation engine
+      const result = await this.conversationEngine.processUserInput(transcript, confidence);
+      
+      if (result.success) {
+        // Add AI response to conversation history
+        this.addMessageToHistory('assistant', result.response);
+        
+        // Speak the AI response
+        if (this.speechSynthesis) {
+          this.speechSynthesis.speak(result.response, { rate: 0.8 });
+        }
+        
+        H.showToast('AI responded!', 'success', 2000);
+      }
+      
+    } catch (error) {
+      console.error('Failed to process with AI:', error);
+      
+      // Check for specific API key errors
+      if (error.message && error.message.includes('401')) {
+        H.showToast('❌ Invalid API key. Please check your OpenAI API key in Settings.', 'error', 8000);
+        // Auto-switch to settings after a short delay
+        setTimeout(() => {
+          this.switchView('settings');
+        }, 2000);
+      } else if (error.message && error.message.includes('API key')) {
+        H.showToast('❌ API key error. Please verify your OpenAI API key in Settings.', 'error', 6000);
+      } else {
+        H.showToast('Failed to get AI response. Please try again.', 'error');
+      }
+    } finally {
+      H.hide(this.elements.processingIndicator);
+    }
+  } 
+
+
   // Add message to conversation history display
   addMessageToHistory(role, message) {
     if (!this.elements.conversationHistory) return;
@@ -859,6 +944,18 @@ class HablaBotApp {
     if (this.sessionTimer) {
       clearInterval(this.sessionTimer);
       this.sessionTimer = null;
+    }
+  }
+
+  cleanup() {
+    try {
+      this.stopSessionTimer();
+      this.stopListening();
+      if (this.speechSynthesis) {
+        this.speechSynthesis.stop();
+      }
+    } catch (error) {
+      console.error('Error during cleanup:', error);
     }
   }
 
