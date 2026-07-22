@@ -322,3 +322,18 @@ system) includes whatever `turnDetection` was passed on the original connect.
 Tests: `tests/turn-profiles.test.js` (pure function, 4 tests) plus two new cases in
 `tests/realtime-session.test.js` confirming both the fallback (no override passed) and the override
 path produce the exact expected `turn_detection` object in the `session.update` payload.
+
+## 2026-07-22 — GitHub Actions CI (Issue #2)
+
+Added `.github/workflows/test.yml`: Node 20.x/22.x matrix, `npm ci` + `npm test` on push/PR to
+`main`. Modeled on `retirement-scenario-explorer`'s `.github/workflows/test.yml` (noted as a good
+template back in the Issue #1 entries), but deliberately left out its coverage/codecov step —
+hablabot has no coverage tooling installed (`@vitest/coverage-v8` isn't a devDependency) and no
+Codecov account to upload to; adding either wasn't asked for and would need real setup (token,
+account) beyond just writing a workflow file. Verified `npm ci` + `npm test` succeed locally with a
+clean `node_modules` before committing, since `npm ci` is stricter than `npm install` about lockfile
+consistency and is what CI actually runs.
+
+Noted, not acted on: `npm audit` reports 5 pre-existing vulnerabilities (3 moderate, 1 high, 1
+critical) in `vitest`/`jsdom`'s transitive dependencies — unrelated to this change, not something to
+silently "fix" with `npm audit fix --force` (can introduce breaking changes) without being asked.
