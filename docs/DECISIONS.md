@@ -337,3 +337,12 @@ consistency and is what CI actually runs.
 Noted, not acted on: `npm audit` reports 5 pre-existing vulnerabilities (3 moderate, 1 high, 1
 critical) in `vitest`/`jsdom`'s transitive dependencies — unrelated to this change, not something to
 silently "fix" with `npm audit fix --force` (can introduce breaking changes) without being asked.
+
+## 2026-07-22 — GitHub Pages (Issue #3)
+
+Added `.nojekyll` (empty file, standard for non-Jekyll static sites on GH Pages) and enabled Pages
+via the API — `build_type: "legacy"`, source = `main` branch, path `/`. No Action needed: confirmed
+during Issue #1's research that `retirement-scenario-explorer` (same shape of app, static/no-build)
+uses exactly this config successfully. This is a live repo-settings change, not just a commit —
+noted explicitly since it makes the site publicly reachable at a real URL, unlike everything else in
+this log.
