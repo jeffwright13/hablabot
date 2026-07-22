@@ -1,4 +1,13 @@
-const CACHE_NAME = 'hablabot-v1';
+// v1 -> v2: v1's STATIC_CACHE_URLS predated the Realtime API migration (still
+// listed js/speech/recognition.js, js/speech/synthesis.js, and was missing
+// every js/realtime/*.js file entirely), and the fetch handler below was
+// pure cache-first with no revalidation -- once any file got cached, it
+// stayed frozen at that exact version forever, since CACHE_NAME never
+// changed. This caused a real, confirmed incident: HablaBot silently served
+// a stale cached session.js through an entire investigation into why
+// transcription never worked, while the actual bug had already been fixed
+// on disk multiple times over. See docs/DECISIONS.md for the full story.
+const CACHE_NAME = 'hablabot-v2';
 const STATIC_CACHE_URLS = [
   '/',
   '/index.html',
@@ -7,10 +16,10 @@ const STATIC_CACHE_URLS = [
   '/css/mobile.css',
   '/css/animations.css',
   '/js/app.js',
-  '/js/speech/recognition.js',
-  '/js/speech/synthesis.js',
-  '/js/ai/conversation.js',
   '/js/ai/prompts.js',
+  '/js/realtime/session.js',
+  '/js/realtime/session-vocab-bridge.js',
+  '/js/realtime/turn-profiles.js',
   '/js/vocabulary/manager.js',
   '/js/vocabulary/spaced-repetition.js',
   '/js/storage/database.js',
@@ -18,7 +27,8 @@ const STATIC_CACHE_URLS = [
   '/js/ui/state.js',
   '/js/utils/audio.js',
   '/js/utils/config.js',
-  '/js/utils/helpers.js'
+  '/js/utils/helpers.js',
+  '/js/utils/user-manager.js'
 ];
 
 // Install event - cache static assets
@@ -101,35 +111,37 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Network-first, cache as fallback -- NOT cache-first. v1's cache-first
+  // strategy (checked cache, returned it immediately, never re-checked
+  // network once a URL was cached) is what caused the incident described
+  // above: once a file was cached, it stayed frozen at that exact version
+  // indefinitely, since nothing ever invalidated or revalidated it. This
+  // still gives full offline support (falls back to cache when the network
+  // fetch fails) while keeping the app fresh whenever a network is available,
+  // which is the actually-common case during active development.
   event.respondWith(
-    caches.match(event.request)
-      .then((cachedResponse) => {
-        // Return cached version if available
-        if (cachedResponse) {
-          return cachedResponse;
+    fetch(event.request)
+      .then((response) => {
+        if (!response || response.status !== 200 || response.type !== 'basic') {
+          return response;
         }
 
-        // Otherwise fetch from network
-        return fetch(event.request)
-          .then((response) => {
-            // Don't cache if not a valid response
-            if (!response || response.status !== 200 || response.type !== 'basic') {
-              return response;
+        const responseToCache = response.clone();
+        caches.open(CACHE_NAME)
+          .then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
+
+        return response;
+      })
+      .catch(() => {
+        return caches.match(event.request)
+          .then((cachedResponse) => {
+            if (cachedResponse) {
+              return cachedResponse;
             }
-
-            // Clone the response
-            const responseToCache = response.clone();
-
-            // Add to cache for future use
-            caches.open(CACHE_NAME)
-              .then((cache) => {
-                cache.put(event.request, responseToCache);
-              });
-
-            return response;
-          })
-          .catch(() => {
-            // Network failed, try to serve offline page for navigation requests
+            // Network failed and nothing cached -- try to serve the offline
+            // shell for navigation requests.
             if (event.request.mode === 'navigate') {
               return caches.match('/index.html');
             }

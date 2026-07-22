@@ -498,3 +498,52 @@ of this failure mode in testing.
 Diagnostic code (token expiry logging, `getStats()` candidate-pair logging) is being kept in
 `session.js` rather than removed now that its job is done — genuinely useful if this class of issue
 resurfaces (different network, different browser update, etc.).
+
+## 2026-07-22 — Issue #8's actual root cause: a stale service worker cache, not the API config at all
+
+After every one of the four config attempts logged above failed identically, took a genuinely
+different approach: cloned OpenAI's own official reference app (`openai/openai-realtime-console`)
+and progressively matched every wire-level difference to HablaBot's code — model name, STUN server,
+`getUserMedia` constraints, track-adding pattern, the redundant post-connect `session.update`, the
+SDP endpoint's `?model=` query param, and finally HablaBot's actual full-length real system prompt.
+**Every single variable, once matched, still produced working transcripts in the reference app —
+every time.** That meant the wire protocol was never the problem; whatever was different had to be
+in HablaBot's own running code, not what it sends.
+
+Found it: `sw.js` (registered by every HablaBot session — "SW registered:" in every console log this
+whole investigation) had a real, confirmed bug. `STATIC_CACHE_URLS` still listed pre-Realtime-API
+files (`js/speech/recognition.js`, `js/speech/synthesis.js`) and never included any `js/realtime/*.js`
+file at all. Worse, the fetch handler was pure cache-first with no revalidation — `caches.match()`
+returned a cached response immediately with no network check at all, and `CACHE_NAME` had never been
+bumped, so any file cached at any point stayed frozen at that exact version indefinitely. Once the
+service worker was unregistered and site data cleared, **HablaBot itself started working correctly
+in Chrome** — transcripts populated normally, matching the reference app's behavior all along.
+
+**This means the entire investigation chased a phantom bug.** The API config was likely correct far
+earlier than confirmed — possibly as early as the original nested `audio.input.transcription` guess
+— but the browser was silently running stale `session.js` through some or all of the live tests,
+making a working fix look like a failing one. Genuinely difficult to have caught sooner: the service
+worker was doing its job "correctly" by its own (buggy) logic, produced no errors, and some newer
+diagnostic code *did* appear in logs during the investigation (most likely because devtools'
+"Disable cache" setting — commonly on by default when devtools is open, which it was this entire
+session — intermittently bypassed the service worker's cache for the active tab, not because the
+cache was actually being invalidated by anything in `sw.js` itself).
+
+**Fixed `sw.js` properly, not just for this one incident:**
+- Bumped `CACHE_NAME` to `hablabot-v2` (forces immediate invalidation of every stale cached entry).
+- Updated `STATIC_CACHE_URLS` to match the actual current script list in `index.html` (removed the
+  dead `js/speech/*.js` entries, added all three `js/realtime/*.js` files and `js/utils/user-manager.js`,
+  which was also missing).
+- **Changed the fetch strategy from cache-first to network-first-with-cache-fallback.** This is the
+  part that actually prevents recurrence: bumping the cache name only fixes the *current* staleness
+  once; the old cache-first strategy would have silently gone stale again the very next time any
+  file changed. Network-first still gives full offline support (falls back to cache exactly when the
+  network fetch fails) while keeping the app fresh whenever a network is available — the normal case
+  during active development, and arguably the right tradeoff for an app whose primary use case isn't
+  offline-first.
+
+**Not merged, left superseded:** `fix/user-transcript-delta-accumulation` (the delta-accumulation +
+duplicate-client_secrets-config branch from earlier in this investigation) added real complexity to
+work around a bug that turned out not to exist. Main's simpler configuration (transcription in
+`session.update` only, no delta handling needed) is now confirmed sufficient on its own, once the
+service worker isn't serving stale code. That branch should be deleted rather than merged.
