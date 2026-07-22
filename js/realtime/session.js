@@ -107,8 +107,15 @@ class RealtimeSession {
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
       });
 
-      // Step 3: Create peer connection.
-      this.pc = new RTCPeerConnection();
+      // Step 3: Create peer connection. A STUN server is required — without
+      // one, ICE has only local/host candidates to work with, which can
+      // connect briefly and then fail once renegotiation is needed (this was
+      // missing since the original Realtime API migration, confirmed by
+      // Firefox's own "ICE failed, add a STUN server" diagnostic during
+      // manual testing).
+      this.pc = new RTCPeerConnection({
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+      });
 
       // Diagnostic: log WebRTC connection state changes so a mid-response
       // audio cutoff can be attributed to a dropped connection (vs. a VAD
