@@ -223,6 +223,10 @@ class HablaBotApp {
       this.testApiKey();
     });
     
+    H.on(this.elements.voiceSelect, 'change', (e) => {
+      this.config.set('realtimeVoice', e.target.value);
+    });
+
     H.on(this.elements.speechRate, 'input', (e) => {
       this.elements.speechRateValue.textContent = e.target.value + 'x';
       this.config.set('speechRate', parseFloat(e.target.value));
@@ -397,7 +401,7 @@ class HablaBotApp {
       try {
         await this.realtimeSession.connect(this.config.get('openaiApiKey'), {
           instructions: systemPrompt,
-          voice: 'alloy',
+          voice: this.config.get('realtimeVoice') || 'alloy',
           autoGreet: true
         });
       } catch (error) {
@@ -975,9 +979,10 @@ class HablaBotApp {
         this.elements.speechVolumeValue.textContent = Math.round(volume * 100) + '%';
       }
       
-      // Populate voice selection
-      if (this.speechSynthesis && this.elements.voiceSelect) {
-        this.speechSynthesis.populateVoiceSelect(this.elements.voiceSelect);
+      // Reflect the saved Realtime API voice choice (options are static in index.html —
+      // this list isn't device-dependent the way browser speechSynthesis voices were).
+      if (this.elements.voiceSelect) {
+        this.elements.voiceSelect.value = this.config.get('realtimeVoice') || 'alloy';
       }
       // Update user display
       this.updateUserDisplay();

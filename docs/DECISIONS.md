@@ -87,3 +87,25 @@ Also folded in while fixing this: `currentSession.conversationHistory` is now po
 inside the `onUserTranscript`/`onAITranscript` callbacks in `js/app.js`, rather than needing the
 vocab bridge to own it — it turned out to be an independent gap (nothing populated it at all,
 regardless of vocabulary matching) with a much simpler fix.
+
+## 2026-07-22 — Fixed the empty "Spanish Voice" dropdown by repurposing it, not restoring it
+
+Settings' voice-select dropdown was populated by `this.speechSynthesis.populateVoiceSelect(...)` —
+`this.speechSynthesis` is never assigned anywhere in `HablaBotApp` (leftover reference to
+`HablaBotSpeechSynthesis`, which `index.html` no longer loads since the Realtime API migration), so
+the call silently no-op'd and the dropdown stayed empty.
+
+Rather than resurrect the browser-`speechSynthesis`-based voice list (which no longer plays any
+role — AI audio comes from the Realtime API's media track), repurposed the dropdown to select
+among the Realtime API's own voices (`alloy, ash, ballad, cedar, coral, echo, marin, sage, shimmer,
+verse` — confirmed directly against OpenAI's docs, `marin`/`cedar` recommended for best quality).
+These are static, not device-dependent, so they're hardcoded `<option>`s in `index.html` rather
+than populated by JS. Relabeled "Spanish Voice" → "AI Voice" since these are persona/timbre choices,
+not language-specific — the model speaks whatever language it's instructed to, in whichever voice
+is selected. New `config.js` setting: `realtimeVoice` (default `'alloy'`, matching the value that
+was previously hardcoded in `app.js`'s `startConversation()`).
+
+Deliberately left alone: the Speech Rate / Volume sliders in the same Settings section are the same
+category of vestigial UI (the Realtime API has no equivalent "slow down the TTS" control — it's a
+live audio stream, not a static request), but that wasn't the reported bug, so didn't expand scope
+to fix them here.
