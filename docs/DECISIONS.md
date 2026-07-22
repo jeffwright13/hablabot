@@ -180,3 +180,35 @@ user turns across multiple fresh sessions — added `_connectedAt` timing + a
 whether this is a fixed session/ephemeral-token lifetime limit (in which case the fix is proactive
 reconnection/renewal, not more STUN/TURN work) versus ongoing network flakiness. Next manual test's
 console output will have the actual elapsed-seconds figures to check this against.
+
+## 2026-07-22 — Confirmed ~1 minute session cap; added transparent auto-reconnect
+
+Manual testing measured a disconnect at **56.6s connected** — close enough to this file's own
+original "60s TTL" comment (written before any of this session's changes, presumably reflecting
+actual prior documentation for the old ephemeral-token endpoint) to treat as a real session/token
+lifetime cap rather than coincidence, especially combined with how consistently every test so far
+died after roughly 2 user turns (random network flakiness would vary more than that). Not
+confirmed by OpenAI's current docs either way — a fetch asked directly about ephemeral token TTL
+and session duration limits and came back with no information either way — so this is circumstantial
+but strong evidence, not a documented fact.
+
+Given the choice between (a) building true seamless renewal — proactive token refresh + ICE
+restart before the cap hits, keeping one continuous connection — and (b) transparently starting a
+brand-new session each time the old one drops, chose (b): asked the user directly given the real
+scope difference between the two, and (b) is meaningfully simpler to build and verify correctly.
+
+Implementation (`js/realtime/session.js`): `connect()` takes an internal `_isReconnect` flag and
+remembers its own arguments (`_lastConnectArgs`) on a normal (non-reconnect) call. `_teardown()` is
+a new private method factored out of the old `disconnect()` body — shared between a deliberate
+user-initiated disconnect and the auto-reconnect path, since both need to release the mic/close the
+peer connection, but only one of them should actually decide "give up" vs. "try again." `dc.onclose`
+now retries up to 5 times with a 1s delay before falling back to the existing "unexpected disconnect"
+UX from the previous entry. Reconnects always pass `autoGreet: false` regardless of the original
+options, so the AI doesn't re-greet mid-conversation.
+
+**Known limitation, inherent to choosing (b):** each reconnect is a genuinely new Realtime session
+on OpenAI's side — same persona/instructions get resent, but the model has no memory of turns from
+before the reconnect. There's no mechanism here to replay prior conversation history into the new
+session (and no way to build one reliably right now anyway, since the transcript-null issue above
+means user turns aren't even being captured as text to replay). If the null-transcript issue gets
+resolved, revisit whether replaying history into each reconnected session is worth adding.

@@ -42,11 +42,26 @@ class RealtimeSession {
     this._sessionConfigured = false;
     this._connectedAt = null; // timestamp for diagnosing session-length limits
 
+    // Auto-reconnect: sessions appear to have a ~1 minute hard limit (56.6s
+    // measured in manual testing, matching this file's own original "60s TTL"
+    // comment on the ephemeral token) — rather than surface that to the user
+    // as an error every ~minute, transparently start a new session a capped
+    // number of times before actually giving up. Known limitation: each
+    // reconnect is a genuinely new underlying Realtime session, so the model
+    // has no memory of turns from before the reconnect, even though the
+    // persona/instructions carry over identically.
+    this._lastConnectArgs = null;
+    this._reconnectAttempts = 0;
+    this._maxReconnectAttempts = 5;
+    this._reconnectDelayMs = 1000;
+
     // --- Public callbacks ---
-    // (status: 'connecting'|'active'|'idle'|'error', meta?: { unexpected?: boolean }) => {}
+    // (status: 'connecting'|'active'|'idle'|'error'|'reconnecting', meta?: { unexpected?: boolean }) => {}
     // meta.unexpected is true when 'idle' comes from the connection dropping on
-    // its own (dc.onclose) rather than a deliberate disconnect() call — the UI
-    // should tell the user their session died, not silently go quiet.
+    // its own (dc.onclose, auto-reconnect attempts exhausted) rather than a
+    // deliberate disconnect() call — the UI should tell the user their session
+    // died, not silently go quiet. 'reconnecting' fires for each transparent
+    // auto-reconnect attempt in between.
     this.onStatusChange = null;
     // (text) => {}  — user's speech, fully transcribed by Whisper
     this.onUserTranscript = null;
@@ -66,14 +81,25 @@ class RealtimeSession {
 
   // Connect to the OpenAI Realtime API via WebRTC.
   // options: { model, voice, instructions, autoGreet }
-  async connect(apiKey, options = {}) {
+  // _isReconnect is internal — used by the auto-reconnect path in dc.onclose;
+  // callers should never pass it.
+  async connect(apiKey, options = {}, _isReconnect = false) {
     if (this.isConnected) return;
 
-    this._autoGreet = options.autoGreet !== false;
+    if (!_isReconnect) {
+      // Remember these so an unexpected disconnect can transparently start a
+      // fresh session with the same persona/config.
+      this._lastConnectArgs = { apiKey, options };
+      this._reconnectAttempts = 0;
+    }
+
+    // Never re-greet on a reconnect — the user is mid-conversation, not
+    // starting a new one, even though the underlying session is technically new.
+    this._autoGreet = _isReconnect ? false : (options.autoGreet !== false);
     this._sessionConfigured = false;
 
     try {
-      this._setStatus('connecting');
+      this._setStatus(_isReconnect ? 'reconnecting' : 'connecting');
 
       // Step 1: Exchange API key for a short-lived ephemeral token.
       const tokenRes = await fetch('https://api.openai.com/v1/realtime/client_secrets', {
@@ -203,13 +229,31 @@ class RealtimeSession {
       // should surface "your session ended unexpectedly" rather than silently
       // going quiet, which is what an unattributed 'idle' looked like to the
       // user during manual testing ("froze").
+      //
+      // Also drives auto-reconnect: sessions appear to have a ~1 minute cap,
+      // so a drop here is expected to happen periodically, not necessarily a
+      // real failure — retry transparently before surfacing anything.
       this.dc.onclose = () => {
-        this.isConnected = false;
-        if (this._connectedAt) {
+        const wasConnected = !!this._connectedAt;
+        if (wasConnected) {
           const seconds = ((Date.now() - this._connectedAt) / 1000).toFixed(1);
           console.warn(`RealtimeSession: connection closed unexpectedly after ${seconds}s connected`);
         }
-        this._setStatus('idle', { unexpected: true });
+        this._teardown();
+
+        if (wasConnected && this._lastConnectArgs && this._reconnectAttempts < this._maxReconnectAttempts) {
+          this._reconnectAttempts++;
+          console.log(`RealtimeSession: auto-reconnecting (attempt ${this._reconnectAttempts}/${this._maxReconnectAttempts})`);
+          setTimeout(() => {
+            this.connect(this._lastConnectArgs.apiKey, this._lastConnectArgs.options, true)
+              .catch(err => console.error('RealtimeSession: auto-reconnect failed', err));
+          }, this._reconnectDelayMs);
+        } else {
+          if (wasConnected && this._reconnectAttempts >= this._maxReconnectAttempts) {
+            console.error('RealtimeSession: auto-reconnect attempts exhausted, giving up');
+          }
+          this._setStatus('idle', { unexpected: wasConnected });
+        }
       };
 
       this.dc.onerror = (e) => {
@@ -251,8 +295,24 @@ class RealtimeSession {
     }
   }
 
-  // Cleanly shut down mic, audio output, data channel, and peer connection.
+  // Cleanly shut down mic, audio output, data channel, and peer connection —
+  // deliberate, user-initiated disconnect. Clears _lastConnectArgs so a
+  // subsequent unrelated dc.onclose (there shouldn't be one, since _teardown
+  // nulls dc.onclose below, but just in case) can't trigger an unwanted
+  // auto-reconnect after the user has already ended the conversation.
   disconnect() {
+    this._lastConnectArgs = null;
+    this._teardown();
+    this._setStatus('idle');
+  }
+
+  // --- Private ---
+
+  // Tears down mic, audio output, data channel, and peer connection without
+  // touching _lastConnectArgs/_reconnectAttempts or emitting a status change —
+  // shared by disconnect() (deliberate) and the auto-reconnect path in
+  // dc.onclose (which decides the status/reconnect logic itself afterward).
+  _teardown() {
     if (this.mediaStream) {
       this.mediaStream.getTracks().forEach(t => t.stop());
       this.mediaStream = null;
@@ -273,10 +333,7 @@ class RealtimeSession {
     this.isConnected = false;
     this.isSpeaking = false;
     this._connectedAt = null;
-    this._setStatus('idle');
   }
-
-  // --- Private ---
 
   _send(obj) {
     if (this.dc && this.dc.readyState === 'open') {
