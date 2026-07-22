@@ -394,3 +394,52 @@ describe('RealtimeSession._handleMessage transcript extraction', () => {
     errorSpy.mockRestore();
   });
 });
+
+describe('RealtimeSession AI transcript de-duplication', () => {
+  let session;
+
+  beforeEach(() => {
+    session = new RealtimeSession();
+  });
+
+  it('does not commit the same final AI transcript to history twice in a row', () => {
+    // Reproduces manual testing where each assistant reply appeared 2-3 times
+    // with an identical timestamp -- best theory: the server emits the same
+    // response under both the old and new event name aliases.
+    const received = [];
+    session.onAITranscript = (text, isFinal) => { if (isFinal) received.push(text); };
+
+    session._handleMessage({ type: 'response.audio_transcript.delta', delta: 'Hola, ' });
+    session._handleMessage({ type: 'response.audio_transcript.delta', delta: 'bienvenido.' });
+    session._handleMessage({ type: 'response.audio_transcript.done' });
+
+    // Same underlying response arriving again under the new event name alias.
+    session._handleMessage({ type: 'response.output_audio_transcript.delta', delta: 'Hola, ' });
+    session._handleMessage({ type: 'response.output_audio_transcript.delta', delta: 'bienvenido.' });
+    session._handleMessage({ type: 'response.output_audio_transcript.done' });
+
+    expect(received).toEqual(['Hola, bienvenido.']);
+  });
+
+  it('still commits a genuinely new reply that happens to follow immediately', () => {
+    const received = [];
+    session.onAITranscript = (text, isFinal) => { if (isFinal) received.push(text); };
+
+    session._handleMessage({ type: 'response.audio_transcript.delta', delta: 'Primera respuesta.' });
+    session._handleMessage({ type: 'response.audio_transcript.done' });
+
+    session._handleMessage({ type: 'response.audio_transcript.delta', delta: 'Segunda respuesta.' });
+    session._handleMessage({ type: 'response.audio_transcript.done' });
+
+    expect(received).toEqual(['Primera respuesta.', 'Segunda respuesta.']);
+  });
+
+  it('does not fire onAITranscript at all for an empty buffer', () => {
+    const received = [];
+    session.onAITranscript = (text, isFinal) => { if (isFinal) received.push(text); };
+
+    session._handleMessage({ type: 'response.audio_transcript.done' });
+
+    expect(received).toEqual([]);
+  });
+});

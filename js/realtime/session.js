@@ -36,6 +36,16 @@ class RealtimeSession {
 
     // Accumulate streaming AI transcript deltas
     this.aiTranscriptBuffer = '';
+    // Guards against committing the same final AI transcript to history
+    // twice — observed in manual testing (each assistant reply appearing 2-3
+    // times with an identical timestamp). Best-supported theory: listening
+    // for both the old and new event names as a migration-safety net means
+    // if OpenAI's server actually emits both aliases for the same underlying
+    // response, the delta/done handlers below fire once per alias, refilling
+    // and re-committing the identical text. Fixed defensively here regardless
+    // of the exact server-side mechanism, since a genuine two consecutive
+    // real replies being byte-identical is effectively never going to happen.
+    this._lastFinalAITranscript = null;
 
     // Internal
     this._autoGreet = true;
@@ -462,7 +472,10 @@ class RealtimeSession {
 
       case 'response.audio_transcript.done':
       case 'response.output_audio_transcript.done':
-        if (this.onAITranscript) this.onAITranscript(this.aiTranscriptBuffer, true);
+        if (this.aiTranscriptBuffer && this.aiTranscriptBuffer !== this._lastFinalAITranscript) {
+          this._lastFinalAITranscript = this.aiTranscriptBuffer;
+          if (this.onAITranscript) this.onAITranscript(this.aiTranscriptBuffer, true);
+        }
         this.aiTranscriptBuffer = '';
         break;
 

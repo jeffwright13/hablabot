@@ -380,3 +380,39 @@ instead of silence.
 Tests: updated the existing `session.update` shape assertion for the new model/language, and added
 a case confirming the `.failed` event logs clearly via `console.error` rather than being silently
 ignored (`tests/realtime-session.test.js`, now 17 tests).
+
+## 2026-07-22 — Fixed duplicate AI messages in conversation history (2-3x repeats)
+
+Manual testing showed every assistant reply appearing 2-3 times in the conversation history with an
+identical timestamp. Traced `addMessageToHistory('assistant', ...)` to a single call site
+(`app.js`'s `onAITranscript` callback, only when `isFinal`), so the duplication has to come from
+`onAITranscript(..., true)` itself firing more than once for the same logical response.
+
+Best-supported theory, not confirmed via direct server evidence but consistent with everything else
+in this migration saga: `_handleMessage` listens for both the old and new event names
+(`response.audio_transcript.*` / `response.output_audio_transcript.*`) as a migration-safety net. If
+OpenAI's server is actually emitting **both** aliases for the same underlying response — deltas
+under both names, refilling `aiTranscriptBuffer`, then `.done` under both names — the handler fires
+once per alias, each time with a full, correctly-reconstructed (not garbled) copy of the same text,
+which exactly matches what was observed (the same complete sentence twice, not a doubled/garbled
+string).
+
+Fixed defensively regardless of the exact mechanism: `_lastFinalAITranscript` tracks the last
+committed final transcript; `.done`'s handler now skips calling `onAITranscript` if the current
+buffer is empty or identical to the last commit. Two consecutive real replies being byte-identical
+is effectively never going to happen, so this can't accidentally suppress a genuine turn.
+
+Tests: 3 new cases (52 total) — the duplicate-alias scenario gets committed once, two genuinely
+different consecutive replies both still commit, and an empty buffer never fires the callback at
+all.
+
+## 2026-07-22 — User pushback: the mid-utterance cutoff (#7) matters more than initially assessed
+
+Told the user "nothing about the live conversation experience itself is degraded" by the transcript
+bug (#8), reasoning that the model understands/responds from raw audio regardless of what HablaBot's
+own transcript extraction captures. Correctly pushed back: when a response gets audio-truncated by
+the ~41s cap (#7, already accepted as a tradeoff), the **only** way to know what was actually said is
+reading the AI's text transcript — which was simultaneously undermined by the duplication bug above.
+Relying on reading text to know what was said out loud defeats the actual point of a
+listening-comprehension tool. Correcting the record here rather than leaving the earlier, too-glib
+claim standing.
