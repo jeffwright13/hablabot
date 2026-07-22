@@ -97,11 +97,28 @@ class RealtimeSession {
       const tokenData = await tokenRes.json();
       const ephemeralKey = tokenData.value;
 
-      // Step 2: Open microphone.
-      this.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Step 2: Open microphone. Explicit echoCancellation/noiseSuppression/
+      // autoGainControl rather than relying on browser defaults — without it,
+      // the AI's own playback can leak into the mic and trigger the server
+      // VAD's barge-in, cutting the AI off mid-sentence. (Diagnostic pass —
+      // see onconnectionstatechange below for whether this is actually what's
+      // happening vs. a dropped connection.)
+      this.mediaStream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+      });
 
       // Step 3: Create peer connection.
       this.pc = new RTCPeerConnection();
+
+      // Diagnostic: log WebRTC connection state changes so a mid-response
+      // audio cutoff can be attributed to a dropped connection (vs. a VAD
+      // barge-in, vs. something server-side) instead of failing silently.
+      this.pc.oniceconnectionstatechange = () => {
+        console.log('RealtimeSession: ICE connection state ->', this.pc.iceConnectionState);
+      };
+      this.pc.onconnectionstatechange = () => {
+        console.log('RealtimeSession: peer connection state ->', this.pc.connectionState);
+      };
 
       // Step 4: Route incoming AI audio to an <audio> element.
       this.audioEl = document.createElement('audio');
@@ -254,11 +271,16 @@ class RealtimeSession {
         }
         break;
 
+      // Diagnostic: logged explicitly so a mid-response audio cutoff can be
+      // checked against whether server VAD falsely detected the user
+      // interrupting (e.g. the AI's own playback leaking into the mic).
       case 'input_audio_buffer.speech_started':
+        console.log('RealtimeSession: VAD detected user speech start (possible barge-in if AI was talking)');
         if (this.onUserSpeechStart) this.onUserSpeechStart();
         break;
 
       case 'input_audio_buffer.speech_stopped':
+        console.log('RealtimeSession: VAD detected user speech stop');
         if (this.onUserSpeechEnd) this.onUserSpeechEnd();
         break;
 
@@ -274,7 +296,7 @@ class RealtimeSession {
         if (transcript && this.onUserTranscript) {
           this.onUserTranscript(transcript.trim());
         } else if (msg.type === 'conversation.item.done') {
-          console.warn('RealtimeSession: conversation.item.done had no recognizable transcript field', msg);
+          console.warn('RealtimeSession: conversation.item.done had no recognizable transcript field', JSON.stringify(msg));
         }
         break;
       }
@@ -297,7 +319,11 @@ class RealtimeSession {
         break;
 
       case 'response.done':
-        // Full response (audio + transcript) complete.
+        // Full response (audio + transcript) complete. Logged with status —
+        // OpenAI marks interrupted/incomplete responses (e.g. cut off by a
+        // barge-in) differently from a naturally completed one, which
+        // distinguishes "AI got interrupted" from "connection dropped."
+        console.log('RealtimeSession: response.done, status =', msg.response?.status, JSON.stringify(msg.response?.status_details || {}));
         if (this.isSpeaking) {
           this.isSpeaking = false;
           if (this.onAIAudioEnd) this.onAIAudioEnd();
