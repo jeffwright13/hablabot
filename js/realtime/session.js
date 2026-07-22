@@ -144,29 +144,28 @@ class RealtimeSession {
 
       this.dc.onopen = () => {
         // Session is live — configure it.
-        // `modalities` -> `output_modalities`; voice/turn_detection moved under
-        // nested audio.output / audio.input (confirmed working — VAD events
-        // fire and voice audio plays correctly with this nesting).
+        // `modalities` -> `output_modalities`; voice/turn_detection/transcription
+        // moved under nested audio.output / audio.input (confirmed working for
+        // voice and turn_detection — VAD events fire and audio plays correctly).
         //
-        // input_audio_transcription stays a top-level flat field, NOT nested
-        // under audio.input — that nested `audio.input.transcription` shape
-        // (tried first) turned out to belong to a different, dedicated
-        // `type: "transcription"` session, not a normal `type: "realtime"`
-        // conversation session like this one. Manual testing showed transcript:
-        // null on every user turn with the nested version; this flat field is
-        // what OpenAI's community forum reports as correct for conversation
-        // sessions. Not fully confirmed yet either — the same thread notes
-        // other developers still seeing null in some cases — verify against
-        // a live session.
+        // input_audio_transcription: a flat top-level field was tried based on
+        // a community report, and the live API rejected it outright —
+        // "Unknown parameter: 'session.input_audio_transcription'" — so this
+        // really is nested under audio.input like the rest. The nested shape
+        // was never rejected; it just silently returned transcript: null with
+        // model 'whisper-1'. Switched to 'gpt-realtime-whisper', which OpenAI's
+        // dedicated transcription guide describes as "natively streaming and
+        // designed for realtime sessions" (vs. whisper-1's older batch model) —
+        // verify against a live session.
         this._send({
           type: 'session.update',
           session: {
             type: 'realtime',
             output_modalities: ['audio'],
             instructions: options.instructions || 'You are a helpful assistant.',
-            input_audio_transcription: { model: 'whisper-1' },
             audio: {
               input: {
+                transcription: { model: 'gpt-realtime-whisper' },
                 turn_detection: {
                   type: 'server_vad',
                   threshold: 0.5,
