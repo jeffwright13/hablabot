@@ -366,6 +366,30 @@ describe('RealtimeSession._handleMessage transcript extraction', () => {
     expect(received).toEqual(['buenos días']);
   });
 
+  it('ignores the assistant\'s own conversation.item.done instead of misrouting it as a user transcript', () => {
+    // Regression test: conversation.item.done fires for both user and
+    // assistant items, and the assistant's own item has
+    // item.content[0].transcript populated with the AI's spoken text (only
+    // the user's is ever null) -- extracting it here without checking role
+    // injected an extra message mislabeled as if the user had said it,
+    // which looked like the AI's reply appearing 2-3 times in the history.
+    const received = [];
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    session.onUserTranscript = (t) => received.push(t);
+
+    session._handleMessage({
+      type: 'conversation.item.done',
+      item: {
+        role: 'assistant',
+        content: [{ type: 'output_audio', transcript: 'Bienvenido, ¿tiene reserva?' }],
+      },
+    });
+
+    expect(received).toEqual([]);
+    expect(warnSpy).not.toHaveBeenCalled(); // shouldn't warn about a role it deliberately skips either
+    warnSpy.mockRestore();
+  });
+
   it('warns instead of calling onUserTranscript when the transcript is null', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const received = [];

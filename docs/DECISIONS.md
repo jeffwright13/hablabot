@@ -547,3 +547,32 @@ duplicate-client_secrets-config branch from earlier in this investigation) added
 work around a bug that turned out not to exist. Main's simpler configuration (transcription in
 `session.update` only, no delta handling needed) is now confirmed sufficient on its own, once the
 service worker isn't serving stale code. That branch should be deleted rather than merged.
+
+## 2026-07-22 — The "AI reply appears 2-3 times" bug: a different, real bug, not the earlier "fix"
+
+With the service worker fixed and a genuinely fresh cache confirmed, retested whether the AI-message
+duplication (found earlier this session, "fixed" via `_lastFinalAITranscript` deduping in the
+`response.audio_transcript.done`/`response.output_audio_transcript.done` handler) was actually
+resolved. It wasn't — still tripled. On reflection, that earlier fix was never going to help: even
+without it, a genuine second `.done` firing for the same response would already hit an empty,
+already-reset `aiTranscriptBuffer` and fail the `if (this.aiTranscriptBuffer && ...)` check on its
+own. That the bug persisted despite two independent guards on that path meant the duplication was
+never coming from there at all.
+
+Found the real cause: `conversation.item.done` fires for **both** user and assistant turns — visible
+throughout every reference-app log captured while investigating #8, where assistant items always had
+`item.content[0].transcript` populated with the AI's own spoken text (only the user's is ever
+`null`). `session.js`'s handler for this event never checked `msg.item?.role` — it unconditionally
+tried to extract `item.content[].transcript` and fire `onUserTranscript` with whatever it found. For
+an assistant's own turn-completion event, that meant extracting the AI's own words and injecting them
+into the conversation history mislabeled as if the user had said them — with identical text to the
+real assistant bubble, which is exactly what "the AI's reply appears 2-3 times" looked like.
+
+Fixed by skipping the case entirely when `msg.item?.role === 'assistant'`, before any transcript
+extraction is attempted (and before the "no recognizable transcript field" warning, which shouldn't
+fire for a role this handler deliberately isn't processing). The earlier `_lastFinalAITranscript`
+dedup guard is left in place — harmless, and a reasonable defensive measure regardless — but this is
+the fix that actually addresses the reported symptom.
+
+Tests: 1 new case (56 total) confirming an assistant-role `conversation.item.done` with a populated
+transcript is ignored entirely, and doesn't spuriously warn either.

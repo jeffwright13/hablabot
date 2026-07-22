@@ -486,8 +486,20 @@ class RealtimeSession {
       // docs, so this checks a couple of plausible locations for the
       // transcript and warns rather than silently dropping the user's turn.
       // Kept the old event name too in case it's still emitted for back-compat.
+      //
+      // conversation.item.done fires for BOTH user and assistant items --
+      // confirmed via reference-app testing, where the assistant's own item
+      // has item.content[0].transcript populated with the AI's spoken text
+      // (only the user's is ever null). This handler is specifically for the
+      // USER's turn, so it must skip assistant items -- previously it didn't
+      // check msg.item?.role at all, meaning every assistant turn's own
+      // conversation.item.done was extracting the AI's own words and firing
+      // onUserTranscript with them, injecting an extra message mislabeled as
+      // if the user had said it. That's what looked like the AI's reply
+      // appearing 2-3 times in the conversation history.
       case 'conversation.item.input_audio_transcription.completed':
       case 'conversation.item.done': {
+        if (msg.item?.role === 'assistant') break;
         const transcript = msg.transcript
           || msg.item?.content?.find(c => c.transcript)?.transcript;
         if (transcript && this.onUserTranscript) {
