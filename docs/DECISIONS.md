@@ -299,3 +299,26 @@ coverage as a whole, and testing it properly needs either a DOM/IndexedDB test h
 isn't polyfilled yet — see the Issue #1 entry above) or refactoring pieces to be more testable in
 isolation — a differently-shaped, bigger task than backfilling coverage for already-written fixes.
 Flagged to the user as a separate scoping question rather than bundled in here.
+
+## 2026-07-22 — Turn-detection tuning per difficulty (Issue #5)
+
+Implemented per the plan in `docs/live-voice-assessment.md` (Step 5, Option B, steps 1-4), updated
+for how much `session.js` changed since that plan was written (nested `audio.input.turn_detection`
+instead of the flat shape assumed back then).
+
+New `js/realtime/turn-profiles.js` — pure function `getTurnDetectionConfig(difficulty)`, three
+tiers: beginner `silence_duration_ms: 2200` (generous pause tolerance to think in Spanish, directly
+motivated by the Reddit thread's complaint that ChatGPT's voice mode barges in on exactly this),
+intermediate `1500` (HablaBot's original, unvaried default — kept as-is, not arbitrarily changed),
+advanced `1000` (natural conversational pace). Unrecognized/missing difficulty falls back to
+intermediate.
+
+`session.js`'s `connect()` now accepts `options.turnDetection`, falling back to the original
+hardcoded values if not passed — existing/other callers unaffected. `app.js`'s `startConversation()`
+passes `HablaBotTurnProfiles.getTurnDetectionConfig(difficulty)` through. Reconnects automatically
+carry the same profile forward since `_lastConnectArgs.options` (already used for the auto-reconnect
+system) includes whatever `turnDetection` was passed on the original connect.
+
+Tests: `tests/turn-profiles.test.js` (pure function, 4 tests) plus two new cases in
+`tests/realtime-session.test.js` confirming both the fallback (no override passed) and the override
+path produce the exact expected `turn_detection` object in the `session.update` payload.

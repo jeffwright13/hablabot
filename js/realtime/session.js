@@ -83,7 +83,7 @@ class RealtimeSession {
   }
 
   // Connect to the OpenAI Realtime API via WebRTC.
-  // options: { model, voice, instructions, autoGreet }
+  // options: { model, voice, instructions, autoGreet, turnDetection }
   // _isReconnect is internal — used by the auto-reconnect path in dc.onclose;
   // callers should never pass it.
   async connect(apiKey, options = {}, _isReconnect = false) {
@@ -213,7 +213,11 @@ class RealtimeSession {
             audio: {
               input: {
                 transcription: { model: 'gpt-realtime-whisper' },
-                turn_detection: {
+                // options.turnDetection lets callers vary pause tolerance (e.g.
+                // by difficulty level, see js/realtime/turn-profiles.js) —
+                // falls back to the original fixed values if not passed, so
+                // existing callers are unaffected.
+                turn_detection: options.turnDetection || {
                   type: 'server_vad',
                   threshold: 0.5,
                   prefix_padding_ms: 300,

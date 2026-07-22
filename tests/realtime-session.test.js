@@ -139,6 +139,32 @@ describe('RealtimeSession.connect', () => {
     expect(update.session.audio.input.transcription.model).toBe('gpt-realtime-whisper');
   });
 
+  it('falls back to the original fixed turn_detection when no override is passed', async () => {
+    const pc = await connectAndOpen(session, 'sk-test', {});
+    const update = pc.dataChannel.sent.find(m => m.type === 'session.update');
+
+    expect(update.session.audio.input.turn_detection).toEqual({
+      type: 'server_vad',
+      threshold: 0.5,
+      prefix_padding_ms: 300,
+      silence_duration_ms: 1500,
+    });
+  });
+
+  it('honors an options.turnDetection override (e.g. from turn-profiles.js)', async () => {
+    const customTurnDetection = {
+      type: 'server_vad',
+      threshold: 0.5,
+      prefix_padding_ms: 300,
+      silence_duration_ms: 2200,
+    };
+
+    const pc = await connectAndOpen(session, 'sk-test', { turnDetection: customTurnDetection });
+    const update = pc.dataChannel.sent.find(m => m.type === 'session.update');
+
+    expect(update.session.audio.input.turn_detection).toEqual(customTurnDetection);
+  });
+
   it('sends response.create to greet only when autoGreet is not false', async () => {
     const pc = await connectAndOpen(session, 'sk-test', { autoGreet: true });
     pc.dataChannel.simulateMessage({ type: 'session.updated' });

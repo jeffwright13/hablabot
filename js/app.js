@@ -402,7 +402,8 @@ class HablaBotApp {
         await this.realtimeSession.connect(this.config.get('openaiApiKey'), {
           instructions: systemPrompt,
           voice: this.config.get('realtimeVoice') || 'alloy',
-          autoGreet: true
+          autoGreet: true,
+          turnDetection: window.HablaBotTurnProfiles.getTurnDetectionConfig(difficulty)
         });
       } catch (error) {
         // connect() already called onError and set status; just bail out of the UI change
