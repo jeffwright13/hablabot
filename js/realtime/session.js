@@ -139,6 +139,17 @@ class RealtimeSession {
 
       const tokenData = await tokenRes.json();
       const ephemeralKey = tokenData.value;
+      // Diagnostic: OpenAI's docs say the ephemeral token's expires_at only
+      // gates *starting* a session, not an already-connected session's
+      // duration — but that's exactly the kind of documentation claim this
+      // migration has repeatedly turned out to be stale or incomplete on.
+      // Logging it directly lets a live test check whether the ~41s
+      // disconnects line up with this timestamp regardless of what the docs
+      // say they should do.
+      if (tokenData.expires_at) {
+        const secondsUntilExpiry = tokenData.expires_at - Math.floor(Date.now() / 1000);
+        console.log(`RealtimeSession: ephemeral token expires_at in ${secondsUntilExpiry}s`);
+      }
 
       // Step 2: Open microphone. Explicit echoCancellation/noiseSuppression/
       // autoGainControl rather than relying on browser defaults — without it,
@@ -173,6 +184,15 @@ class RealtimeSession {
       this.pc.onconnectionstatechange = () => {
         const state = this.pc.connectionState;
         console.log('RealtimeSession: peer connection state ->', state);
+        if (state === 'failed' || state === 'disconnected') {
+          // Diagnostic: capture real network-level stats at the moment of
+          // loss, before teardown clears this.pc — packet counts and
+          // candidate-pair state distinguish "packets stopped flowing
+          // bidirectionally" (points at a NAT/router timeout dropping the
+          // UDP mapping) from other failure modes, rather than continuing to
+          // guess from ICE state transitions alone.
+          this._logConnectionStats(state);
+        }
         if (state === 'failed') {
           this._onConnectionLost('peer connection failed');
         } else if (state === 'disconnected') {
@@ -362,6 +382,34 @@ class RealtimeSession {
     this.isConnected = false;
     this.isSpeaking = false;
     this._connectedAt = null;
+  }
+
+  // Diagnostic only — logs candidate-pair and packet-count stats at the
+  // moment of connection loss. Bidirectional packet flow stopping (both
+  // bytesSent and bytesReceived flatlining together) points at a network-
+  // level cause (e.g. a NAT/router UDP binding timeout) rather than either
+  // side deliberately closing the connection. Best-effort: getStats() can
+  // reject or return nothing useful once the connection is already dying,
+  // and that's fine — this exists purely to inform the next live test.
+  async _logConnectionStats(reason) {
+    if (!this.pc || typeof this.pc.getStats !== 'function') return;
+    try {
+      const stats = await this.pc.getStats();
+      stats.forEach((report) => {
+        if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+          console.log(`RealtimeSession: stats at ${reason} — candidate-pair`, {
+            bytesSent: report.bytesSent,
+            bytesReceived: report.bytesReceived,
+            packetsLost: report.packetsLost,
+            currentRoundTripTime: report.currentRoundTripTime,
+            lastPacketSentTimestamp: report.lastPacketSentTimestamp,
+            lastPacketReceivedTimestamp: report.lastPacketReceivedTimestamp,
+          });
+        }
+      });
+    } catch (err) {
+      console.warn('RealtimeSession: getStats() failed while diagnosing connection loss', err);
+    }
   }
 
   // Shared handler for any signal that the connection is gone — called from

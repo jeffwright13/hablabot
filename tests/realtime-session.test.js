@@ -55,6 +55,11 @@ class MockPeerConnection {
   close() {
     this.connectionState = 'closed';
   }
+  async getStats() {
+    // RTCStatsReport is Map-like (forEach over report objects) -- a real Map
+    // matches that shape closely enough for testing.
+    return this.mockStatsReport || new Map();
+  }
   // --- test helper ---
   setConnectionState(state) {
     this.connectionState = state;
@@ -78,12 +83,18 @@ function installMocks() {
     getUserMedia: vi.fn().mockResolvedValue({ getTracks: () => [mockTrack()] }),
   };
 
-  const state = { tokenOk: true, sdpOk: true };
+  const state = { tokenOk: true, sdpOk: true, expiresAt: null };
 
   global.fetch = vi.fn((url) => {
     if (url.includes('/client_secrets')) {
       return state.tokenOk
-        ? Promise.resolve({ ok: true, json: async () => ({ value: 'ephemeral-key' }) })
+        ? Promise.resolve({
+            ok: true,
+            json: async () => ({
+              value: 'ephemeral-key',
+              ...(state.expiresAt ? { expires_at: state.expiresAt } : {}),
+            }),
+          })
         : Promise.resolve({ ok: false, status: 401, json: async () => ({ error: { message: 'bad key' } }) });
     }
     if (url.includes('/calls')) {
@@ -441,5 +452,57 @@ describe('RealtimeSession AI transcript de-duplication', () => {
     session._handleMessage({ type: 'response.audio_transcript.done' });
 
     expect(received).toEqual([]);
+  });
+});
+
+describe('RealtimeSession connectivity diagnostics', () => {
+  let session;
+
+  beforeEach(() => {
+    installMocks();
+    session = new RealtimeSession();
+  });
+
+  it('logs the ephemeral token expiry when the server provides one', async () => {
+    const mockState = installMocks();
+    mockState.expiresAt = Math.floor(Date.now() / 1000) + 55; // ~55s from now
+    session = new RealtimeSession();
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    await connectAndOpen(session, 'sk-test');
+
+    expect(logSpy).toHaveBeenCalledWith(expect.stringMatching(/expires_at in \d+s/));
+    logSpy.mockRestore();
+  });
+
+  it('logs candidate-pair stats when the connection is lost', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const pc = await connectAndOpen(session, 'sk-test');
+
+    pc.mockStatsReport = new Map([
+      ['candidate-pair-1', {
+        type: 'candidate-pair',
+        state: 'succeeded',
+        bytesSent: 12345,
+        bytesReceived: 0, // nothing coming back -- the NAT-timeout signature
+        packetsLost: 0,
+        currentRoundTripTime: 0.05,
+      }],
+    ]);
+    pc.setConnectionState('failed');
+    await Promise.resolve(); // let the async getStats() call settle
+
+    expect(logSpy).toHaveBeenCalledWith(
+      expect.stringContaining('stats at failed'),
+      expect.objectContaining({ bytesSent: 12345, bytesReceived: 0 })
+    );
+    logSpy.mockRestore();
+  });
+
+  it('does not throw if getStats() is unavailable or the pc is already gone', async () => {
+    const pc = await connectAndOpen(session, 'sk-test');
+    pc.getStats = undefined;
+
+    expect(() => pc.setConnectionState('failed')).not.toThrow();
   });
 });

@@ -416,3 +416,44 @@ reading the AI's text transcript — which was simultaneously undermined by the 
 Relying on reading text to know what was said out loud defeats the actual point of a
 listening-comprehension tool. Correcting the record here rather than leaving the earlier, too-glib
 claim standing.
+
+## 2026-07-22 — Issue #7 reframed: pivoting from "renewal" to "diagnose the actual disconnect cause"
+
+Before starting on true seamless renewal, checked whether existing voice-agent frameworks
+(Pipecat, LiveKit Agents) already solve this — they don't cleanly apply: Pipecat's OpenAI WebRTC
+transport (`@pipecat-ai/openai-realtime-webrtc-transport`) is npm-only, requiring a bundler, which
+breaks HablaBot's deliberate zero-build-step architecture; LiveKit routes through their own
+infrastructure, a bigger pivot than a client library; OpenAI's own official reference client
+(`openai-realtime-api-beta`) is fully deprecated (beta endpoints removed May 12, 2026). Neither
+documented automatic session-renewal as a built-in feature either way.
+
+More importantly, this research surfaced a fact that reframes the whole problem: **OpenAI's docs
+state the maximum Realtime session duration is 60 minutes**, not ~41 seconds. The consistent ~40-43s
+disconnects measured throughout this investigation aren't hitting any documented session cap at
+all. The original "60s TTL" comment in this file (present before this migration work started) was
+about the *ephemeral token* used only to establish a connection — separately confirmed via OpenAI's
+docs and a real GitHub issue
+(`openai/openai-realtime-agents#119`, another developer asking specifically about session limits
+and reporting none observed) that token expiry does not terminate an already-connected session.
+
+Working theory now: this is a genuine connectivity bug, not a limit to design around — plausibly a
+NAT/router UDP binding timeout (routers commonly time out idle-ish UDP mappings in exactly this
+range; if WebRTC's ICE consent-freshness traffic isn't sufficient to keep it alive, the mapping
+silently drops). Also newly relevant: manual testing has been in Firefox specifically (confirmed by
+the "add a STUN/TURN server, see about:webrtc" messages, which are Firefox's own diagnostic
+phrasing) — Firefox's WebRTC/ICE implementation differs from Chromium's in ways that could matter
+here, untested until now.
+
+Added two diagnostics rather than another guessed fix:
+- Log the ephemeral token's actual `expires_at` (if the response includes one) against observed
+  disconnect timing — directly checks the token-TTL hypothesis with real data instead of docs that
+  have proven stale/incomplete elsewhere in this investigation.
+- Log `RTCPeerConnection.getStats()` candidate-pair data (bytes sent/received, packet loss, RTT) at
+  the moment `connectionState` reaches `disconnected`/`failed`. Bidirectional packet flow stopping
+  together points at a network-level cause (NAT timeout); one-sided flow or high packet loss would
+  point elsewhere.
+
+Next test should also try Chrome or Safari alongside Firefox, to check whether this is browser-specific.
+
+Tests: 3 new cases (55 total) covering the expiry log format, stats logging on connection loss, and
+that a missing/unavailable `getStats()` doesn't throw.
