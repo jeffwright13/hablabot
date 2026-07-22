@@ -273,3 +273,29 @@ freezing, no more silently dead sessions — is confirmed working well; occasion
 truncation and memory reset at the ~41s mark is a known, accepted limitation, not a bug to keep
 chasing reactively. Revisit seamless renewal as its own properly scoped piece of work if this
 becomes worth fixing for real (tracked as a GitHub issue rather than left implicit here).
+
+## 2026-07-22 — Backfilled test coverage for the whole reconnect saga
+
+Everything in this file's entries above was found and fixed through slow, expensive manual browser
+testing against the live OpenAI API — each iteration cost a full round-trip of "make a change, ask
+the user to retest, read a console dump." Went back and added real unit coverage now that the dust
+has settled, specifically for the pieces that were both new this session and genuinely bug-prone:
+
+- `tests/realtime-session.test.js` (new, 14 tests) — mocks `RTCPeerConnection`/`RTCDataChannel`/
+  `getUserMedia`/`fetch` (jsdom implements none of them) to test `RealtimeSession`'s connect/reconnect
+  state machine without a real WebRTC connection or API key. Notably includes regression tests for
+  the two real bugs found via manual testing: a failed reconnect attempt now provably keeps retrying
+  up to `_maxReconnectAttempts` instead of silently giving up after one try, and `_onConnectionLost`
+  is provably idempotent against redundant signals (e.g. both `onconnectionstatechange` and
+  `dc.onclose` firing for the same drop). Also covers the `session.update` payload shape and
+  `_handleMessage`'s transcript-extraction paths (top-level, nested, and the null case).
+- `tests/config.test.js` (new, 2 tests) — `config.js` had zero coverage before this; scoped tightly
+  to just the `realtimeVoice` addition from the voice-select-dropdown fix rather than building out
+  full `Config` coverage as a side effect.
+
+**Deliberately not covered:** `app.js`'s new pieces (the unexpected-disconnect UI reset, voice-select
+change wiring, target-word selection in `startConversation()`). `app.js` has zero existing test
+coverage as a whole, and testing it properly needs either a DOM/IndexedDB test harness (IndexedDB
+isn't polyfilled yet — see the Issue #1 entry above) or refactoring pieces to be more testable in
+isolation — a differently-shaped, bigger task than backfilling coverage for already-written fixes.
+Flagged to the user as a separate scoping question rather than bundled in here.
