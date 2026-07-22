@@ -102,7 +102,11 @@ class HablaBotApp {
     // Initialize vocabulary manager
     this.vocabularyManager = window.HablaBotVocabulary;
     await this.vocabularyManager.init(this.database, window.HablaBotSpacedRepetition);
-    
+
+    // Initialize the live-conversation vocabulary tracker
+    this.vocabBridge = window.HablaBotSessionVocabBridge;
+    this.vocabBridge.init(this.vocabularyManager);
+
     // Initialize UI components
     window.HablaBotComponents.init(this.vocabularyManager, window.HablaBotUIState);
     window.HablaBotUIState.init(this.elements);
@@ -362,7 +366,13 @@ class HablaBotApp {
       const scenario = this.elements.scenarioSelect.value;
       const sessionLength = parseInt(this.elements.sessionLengthSlider.value);
       const difficulty = this.elements.difficultySelect.value;
-      
+
+      // Select target vocabulary for this session (due-for-review + new words,
+      // scoped to difficulty/scenario) so it actually reaches the system prompt
+      // and the live-conversation tracker below.
+      const targetWords = this.vocabularyManager.selectWordsForSession({ difficulty, scenario });
+      this.vocabBridge.reset();
+
       // Create new session
       this.currentSession = {
         id: this.database.generateId(),
@@ -370,19 +380,19 @@ class HablaBotApp {
         scenario,
         difficulty,
         sessionLength,
-        targetWords: [], // Will be populated by vocabulary manager
+        targetWords,
         conversationHistory: [],
         wordsUsed: {},
         userPerformance: {}
       };
-      
+
       // Hide setup and show active conversation
       H.hide(this.elements.conversationSetup);
       H.show(this.elements.conversationActive);
-      
+
       // Connect to the OpenAI Realtime API
       const systemPrompt = window.HablaBotPrompts.generateSystemPrompt(
-        scenario, difficulty, []
+        scenario, difficulty, targetWords
       );
       try {
         await this.realtimeSession.connect(this.config.get('openaiApiKey'), {
@@ -415,10 +425,14 @@ class HablaBotApp {
     try {
       // Stop session timer
       this.stopSessionTimer();
-      
+
       // End session
       this.currentSession.endTime = new Date();
-      
+
+      // Pull accumulated word-usage counts from the live-conversation tracker
+      // (conversationHistory is already populated incrementally in setupRealtimeCallbacks).
+      this.currentSession.wordsUsed = this.vocabBridge.getWordsUsed();
+
       // Save session to database
       await this.database.saveConversationSession(this.currentSession);
       
@@ -556,6 +570,11 @@ class HablaBotApp {
         this.elements.userSpeechText.textContent = text;
       }
       this.addMessageToHistory('user', text);
+
+      if (this.currentSession) {
+        this.currentSession.conversationHistory.push({ speaker: 'user', text, timestamp: new Date() });
+        this.vocabBridge.trackUserTranscript(text, this.currentSession.targetWords);
+      }
     };
 
     // AI transcript streaming in — update the live text display.
@@ -566,6 +585,10 @@ class HablaBotApp {
       }
       if (isFinal && text) {
         this.addMessageToHistory('assistant', text);
+
+        if (this.currentSession) {
+          this.currentSession.conversationHistory.push({ speaker: 'assistant', text, timestamp: new Date() });
+        }
       }
     };
 

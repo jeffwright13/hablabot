@@ -68,3 +68,22 @@ reference to copy from if/when this is revisited.
 - **GH Pages (Issue #3)**: `retirement-scenario-explorer`'s Pages config is `build_type: "legacy"`,
   source = `main` branch root, no Action involved — confirms the zero-effort path works for a
   static, no-build app like HablaBot.
+
+## 2026-07-22 — Vocabulary tracking regression fix (Issue #4): no confidence signal, so fixed quality score
+
+Restoring the connection between live conversations and the SM-2 scheduler (`js/realtime/session-vocab-bridge.js`)
+required one simplification from the pre-Realtime-API design. `ConversationEngine.evaluateResponseQuality()`
+used to derive an SM-2 quality score (0-5) partly from a speech-recognition **confidence** value that
+the old Web Speech API provided per result. The Realtime API's Whisper-based transcription
+(`conversation.item.input_audio_transcription.completed`) doesn't expose any confidence score at all —
+that signal is simply gone. Rather than fabricate one, `SessionVocabBridge` treats any target word
+found in a user transcript as a successful use with a fixed quality score (4/5). This is a known
+simplification, not a regression from feature parity — the old confidence-weighted score was never
+a strong signal to begin with (Web Speech API confidence values are notoriously unreliable across
+browsers). Revisit if a real correctness signal becomes available (e.g. a secondary model call
+grading the transcript).
+
+Also folded in while fixing this: `currentSession.conversationHistory` is now populated directly
+inside the `onUserTranscript`/`onAITranscript` callbacks in `js/app.js`, rather than needing the
+vocab bridge to own it — it turned out to be an independent gap (nothing populated it at all,
+regardless of vocabulary matching) with a much simpler fix.
