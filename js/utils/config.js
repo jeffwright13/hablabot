@@ -12,6 +12,10 @@ class Config {
       speechPitch: 1.0,
       speechVolume: 0.8,
       voiceIndex: 0,
+      // Voice persona for the OpenAI Realtime API session (js/realtime/session.js).
+      // Not language-specific — the model speaks whatever language it's instructed
+      // to, in this voice. 'alloy' matches the Realtime API's own default.
+      realtimeVoice: 'alloy',
       
       // Learning Preferences
       correctionFrequency: 'immediate', // 'immediate', 'end-of-sentence', 'end-of-conversation'
