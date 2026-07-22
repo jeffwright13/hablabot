@@ -346,3 +346,37 @@ during Issue #1's research that `retirement-scenario-explorer` (same shape of ap
 uses exactly this config successfully. This is a live repo-settings change, not just a commit —
 noted explicitly since it makes the site publicly reachable at a real URL, unlike everything else in
 this log.
+
+## 2026-07-22 — Issue #8: transcription model changed to gpt-4o-transcribe, .failed event now handled
+
+Went further than the prose-doc research that produced the earlier (unsuccessful) attempts. Pulled
+ground truth from two more reliable sources:
+
+- OpenAI's actual TypeScript API reference for creating a client secret — confirms
+  `session.audio.input.transcription` (with `model`/`language`/`prompt`/`delay` sub-fields) is the
+  correct, current shape for a `type: "realtime"` session. This validates the nesting tried
+  previously was right all along; the problem was elsewhere.
+- A real-code TypeScript event-type reference
+  (`transitive-bullshit/openai-realtime-api`'s `src/events.ts`, pulled via raw GitHub, not summarized)
+  and an OpenAI community thread specifically titled around this exact symptom. The thread contains
+  another developer confirming this exact nested structure worked for them, with model
+  **`gpt-4o-transcribe`** — a concrete, corroborated data point, unlike the single-source prose guide
+  that led to trying `gpt-realtime-whisper` previously (which never worked across several live tests).
+
+Changed `session.js`'s `audio.input.transcription` from `{ model: 'gpt-realtime-whisper' }` to
+`{ model: 'gpt-4o-transcribe', language: 'es' }` — `language` added because this app is specifically
+for Spanish speech (accuracy guidance per the API reference; not itself expected to be the
+null-transcript fix, just a legitimate improvement while touching this config).
+
+**Also fixed a real blind spot**: `conversation.item.input_audio_transcription.failed` is a real,
+documented server event (confirmed in the events.ts reference above) that `session.js` never handled
+at all. Input audio transcription runs asynchronously server-side and can fail outright — every
+previous null-transcript investigation had no way to see this even if it was the actual cause the
+whole time, since a failure and "transcription simply not ready yet" looked identical (both just
+absent from the observed events). Added a handler that logs `msg.error` clearly, so if the model
+change above doesn't fully resolve it, the next live test will show a concrete, diagnosable reason
+instead of silence.
+
+Tests: updated the existing `session.update` shape assertion for the new model/language, and added
+a case confirming the `.failed` event logs clearly via `console.error` rather than being silently
+ignored (`tests/realtime-session.test.js`, now 17 tests).

@@ -195,15 +195,17 @@ class RealtimeSession {
         // moved under nested audio.output / audio.input (confirmed working for
         // voice and turn_detection — VAD events fire and audio plays correctly).
         //
-        // input_audio_transcription: a flat top-level field was tried based on
-        // a community report, and the live API rejected it outright —
-        // "Unknown parameter: 'session.input_audio_transcription'" — so this
-        // really is nested under audio.input like the rest. The nested shape
-        // was never rejected; it just silently returned transcript: null with
-        // model 'whisper-1'. Switched to 'gpt-realtime-whisper', which OpenAI's
-        // dedicated transcription guide describes as "natively streaming and
-        // designed for realtime sessions" (vs. whisper-1's older batch model) —
-        // verify against a live session.
+        // input audio transcription: nested audio.input.transcription is the
+        // correct field placement — confirmed against OpenAI's TypeScript API
+        // reference (RealtimeSessionCreateRequest.session.audio.input.transcription)
+        // and against a community forum thread where another developer
+        // confirmed this exact nesting worked for them. Model
+        // 'gpt-realtime-whisper' (tried previously) came from a single guide's
+        // prose description and never actually produced a transcript across
+        // several live tests; switched to 'gpt-4o-transcribe', the model that
+        // developer specifically reported working. `language: 'es'` added
+        // since this app is specifically for Spanish speech (accuracy
+        // guidance per the API reference, not itself the null-transcript fix).
         this._send({
           type: 'session.update',
           session: {
@@ -212,7 +214,7 @@ class RealtimeSession {
             instructions: options.instructions || 'You are a helpful assistant.',
             audio: {
               input: {
-                transcription: { model: 'gpt-realtime-whisper' },
+                transcription: { model: 'gpt-4o-transcribe', language: 'es' },
                 // options.turnDetection lets callers vary pause tolerance (e.g.
                 // by difficulty level, see js/realtime/turn-profiles.js) —
                 // falls back to the original fixed values if not passed, so
@@ -437,6 +439,15 @@ class RealtimeSession {
         }
         break;
       }
+
+      // Never handled before this fix — input audio transcription runs
+      // asynchronously server-side, and a request for a given turn can fail
+      // outright (bad model name, unsupported language, etc.) with no other
+      // signal. Every previous null-transcript investigation had no way to
+      // see this even if it was the actual cause the whole time.
+      case 'conversation.item.input_audio_transcription.failed':
+        console.error('RealtimeSession: input audio transcription failed', JSON.stringify(msg.error || msg));
+        break;
 
       case 'response.audio_transcript.delta':
       case 'response.output_audio_transcript.delta':

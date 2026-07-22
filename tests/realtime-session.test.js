@@ -136,7 +136,8 @@ describe('RealtimeSession.connect', () => {
     expect(update.session.instructions).toBe('You are María.');
     expect(update.session.audio.output.voice).toBe('marin');
     expect(update.session.audio.input.turn_detection.type).toBe('server_vad');
-    expect(update.session.audio.input.transcription.model).toBe('gpt-realtime-whisper');
+    expect(update.session.audio.input.transcription.model).toBe('gpt-4o-transcribe');
+    expect(update.session.audio.input.transcription.language).toBe('es');
   });
 
   it('falls back to the original fixed turn_detection when no override is passed', async () => {
@@ -370,5 +371,26 @@ describe('RealtimeSession._handleMessage transcript extraction', () => {
       expect.any(String)
     );
     warnSpy.mockRestore();
+  });
+
+  it('logs a clear error when transcription fails outright, instead of no signal at all', () => {
+    // Previously unhandled entirely -- every null-transcript investigation had
+    // no way to see this even if it was the actual cause the whole time.
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const received = [];
+    session.onUserTranscript = (t) => received.push(t);
+
+    session._handleMessage({
+      type: 'conversation.item.input_audio_transcription.failed',
+      item_id: 'item_123',
+      error: { message: 'unsupported model' },
+    });
+
+    expect(received).toEqual([]);
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('input audio transcription failed'),
+      expect.stringContaining('unsupported model')
+    );
+    errorSpy.mockRestore();
   });
 });
