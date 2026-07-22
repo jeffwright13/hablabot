@@ -144,10 +144,19 @@ class RealtimeSession {
 
       this.dc.onopen = () => {
         // Session is live — configure it.
-        // `modalities` -> `output_modalities`; voice/turn_detection/transcription
-        // moved under nested audio.output / audio.input. The
-        // audio.input.transcription field name is a best-effort port (not shown
-        // verbatim in the docs sample this was migrated from) — verify against
+        // `modalities` -> `output_modalities`; voice/turn_detection moved under
+        // nested audio.output / audio.input (confirmed working — VAD events
+        // fire and voice audio plays correctly with this nesting).
+        //
+        // input_audio_transcription stays a top-level flat field, NOT nested
+        // under audio.input — that nested `audio.input.transcription` shape
+        // (tried first) turned out to belong to a different, dedicated
+        // `type: "transcription"` session, not a normal `type: "realtime"`
+        // conversation session like this one. Manual testing showed transcript:
+        // null on every user turn with the nested version; this flat field is
+        // what OpenAI's community forum reports as correct for conversation
+        // sessions. Not fully confirmed yet either — the same thread notes
+        // other developers still seeing null in some cases — verify against
         // a live session.
         this._send({
           type: 'session.update',
@@ -155,9 +164,9 @@ class RealtimeSession {
             type: 'realtime',
             output_modalities: ['audio'],
             instructions: options.instructions || 'You are a helpful assistant.',
+            input_audio_transcription: { model: 'whisper-1' },
             audio: {
               input: {
-                transcription: { model: 'whisper-1' },
                 turn_detection: {
                   type: 'server_vad',
                   threshold: 0.5,
