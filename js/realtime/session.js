@@ -40,9 +40,13 @@ class RealtimeSession {
     // Internal
     this._autoGreet = true;
     this._sessionConfigured = false;
+    this._connectedAt = null; // timestamp for diagnosing session-length limits
 
     // --- Public callbacks ---
-    // (status: 'connecting'|'active'|'idle'|'error') => {}
+    // (status: 'connecting'|'active'|'idle'|'error', meta?: { unexpected?: boolean }) => {}
+    // meta.unexpected is true when 'idle' comes from the connection dropping on
+    // its own (dc.onclose) rather than a deliberate disconnect() call — the UI
+    // should tell the user their session died, not silently go quiet.
     this.onStatusChange = null;
     // (text) => {}  — user's speech, fully transcribed by Whisper
     this.onUserTranscript = null;
@@ -180,6 +184,7 @@ class RealtimeSession {
           }
         });
         this.isConnected = true;
+        this._connectedAt = Date.now();
         this._setStatus('active');
       };
 
@@ -191,9 +196,20 @@ class RealtimeSession {
         }
       };
 
+      // Fires when the connection drops on its own (network issue, or a
+      // session/token lifetime limit on OpenAI's side) — NOT when disconnect()
+      // is called deliberately, which nulls this handler out first (see
+      // disconnect() below). Distinguishing the two matters because the UI
+      // should surface "your session ended unexpectedly" rather than silently
+      // going quiet, which is what an unattributed 'idle' looked like to the
+      // user during manual testing ("froze").
       this.dc.onclose = () => {
         this.isConnected = false;
-        this._setStatus('idle');
+        if (this._connectedAt) {
+          const seconds = ((Date.now() - this._connectedAt) / 1000).toFixed(1);
+          console.warn(`RealtimeSession: connection closed unexpectedly after ${seconds}s connected`);
+        }
+        this._setStatus('idle', { unexpected: true });
       };
 
       this.dc.onerror = (e) => {
@@ -256,6 +272,7 @@ class RealtimeSession {
     }
     this.isConnected = false;
     this.isSpeaking = false;
+    this._connectedAt = null;
     this._setStatus('idle');
   }
 
@@ -267,8 +284,8 @@ class RealtimeSession {
     }
   }
 
-  _setStatus(status) {
-    if (this.onStatusChange) this.onStatusChange(status);
+  _setStatus(status, meta = {}) {
+    if (this.onStatusChange) this.onStatusChange(status, meta);
   }
 
   _handleMessage(msg) {

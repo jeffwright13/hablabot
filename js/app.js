@@ -550,10 +550,22 @@ class HablaBotApp {
 
   // Wire up all callbacks from the RealtimeSession to the UI.
   setupRealtimeCallbacks() {
-    this.realtimeSession.onStatusChange = (status) => {
+    this.realtimeSession.onStatusChange = (status, meta = {}) => {
       console.log('Realtime session status:', status);
       if (status === 'error') {
         H.showToast('Connection error. Please check your API key and network.', 'error');
+      }
+      // An unattributed 'idle' from a dropped connection previously looked
+      // like the app just froze — no toast, no UI change, conversation-active
+      // screen left showing with nothing responding. Surface it clearly and
+      // return to the setup screen instead of leaving the user staring at a
+      // dead session with no explanation.
+      if (status === 'idle' && meta.unexpected && this.currentSession) {
+        H.showToast('Connection lost unexpectedly — please start a new conversation.', 'error', 6000);
+        this.stopSessionTimer();
+        this.currentSession = null;
+        H.show(this.elements.conversationSetup);
+        H.hide(this.elements.conversationActive);
       }
     };
 

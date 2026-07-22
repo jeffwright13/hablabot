@@ -152,3 +152,31 @@ confidence tiers:
 
 Filed as its own fix rather than folded into #4/#5 since it's unrelated API drift, not a HablaBot
 bug per se.
+
+## 2026-07-22 — Two more rounds of manual testing: unexpected-disconnect UX fixed, transcript still open
+
+**Fixed:** the reported "froze after second reply" wasn't really a freeze — the connection was
+dying (`ICE connection state -> disconnected`) and `app.js`'s `onStatusChange` only ever showed a
+toast for `status === 'error'`. A natural disconnect goes to `'idle'` with zero user-facing
+feedback, so from the user's side the app just silently stopped responding. `session.js`'s
+`_setStatus` now takes a `meta` object; `dc.onclose` (the natural-disconnect path) passes
+`{ unexpected: true }`, while the deliberate `disconnect()` method (user clicks "End Session") does
+not — the two were previously indistinguishable from the callback's perspective. `app.js` now shows
+a clear toast and resets to the setup screen when `meta.unexpected` is true, instead of leaving the
+conversation-active screen showing with nothing responding.
+
+**Still open, not chasing further right now:** transcript stayed `null` on every single user turn
+across three different config attempts (nested `whisper-1`, flat field — rejected outright by the
+API — nested `gpt-realtime-whisper`), including turns with a demonstrably stable connection. This
+now matches what the community thread (linked in the earlier entry) described as an open, not
+fully understood issue for other developers too, not something more field-name guessing is likely
+to resolve. Leaving `gpt-realtime-whisper` in place as the most defensible current guess; Issue #4's
+vocabulary-tracking bridge remains unable to fire in live sessions until this is actually resolved
+(structurally ready, just never receives a non-null transcript to act on).
+
+**Also observed, not yet fixed:** disconnects are happening fairly consistently after roughly 2
+user turns across multiple fresh sessions — added `_connectedAt` timing + a
+`console.warn` logging elapsed connected seconds on unexpected disconnect, specifically to find out
+whether this is a fixed session/ephemeral-token lifetime limit (in which case the fix is proactive
+reconnection/renewal, not more STUN/TURN work) versus ongoing network flakiness. Next manual test's
+console output will have the actual elapsed-seconds figures to check this against.
