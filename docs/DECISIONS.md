@@ -252,3 +252,24 @@ error/idle-unexpected status once genuinely out of attempts (or if it was the or
 `connect()` call that failed — e.g. a bad API key — which should still fail immediately as before).
 Also bumped `_reconnectDelayMs` from 1s to 2s to give OpenAI's side more time to release the old
 call before the next attempt.
+
+## 2026-07-22 — Accepted: mid-utterance audio cutoffs are an inherent cost of auto-reconnect
+
+Manual testing (three clean reconnects, ~41s apart each time — very consistent, strong confirmation
+of a real session cap around there) surfaced the actual cost of choosing transparent auto-reconnect
+over true seamless renewal back when the session cap was first found: when the ~41s cap lands while
+the AI is mid-utterance, the connection dies at that instant — the server stops sending audio bytes
+— so the played-back sentence is truncated ("Claro, una bebida fría... Coca-Co[la]..."). The
+**text** transcript for the same turn arrived complete in every observed case, confirming this is
+not the model getting interrupted (that shows up differently, as `response.done` with
+`status: "cancelled"`) — it's the connection itself ending mid-stream, with nothing buffered
+client-side left to recover once that happens. Reconnecting can't fix a cutoff already in progress;
+it can only continue the conversation forward (with the memory-loss tradeoff already documented).
+
+Asked the user directly: build true seamless renewal now (proactive token refresh + ICE restart
+before the cap, timed to a quiet moment, no gaps, no memory loss — real additional scope) vs. accept
+the tradeoff and stop here. Chose to accept it for now. Auto-reconnect's actual goal — no more
+freezing, no more silently dead sessions — is confirmed working well; occasional mid-sentence
+truncation and memory reset at the ~41s mark is a known, accepted limitation, not a bug to keep
+chasing reactively. Revisit seamless renewal as its own properly scoped piece of work if this
+becomes worth fixing for real (tracked as a GitHub issue rather than left implicit here).
