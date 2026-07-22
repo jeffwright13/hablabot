@@ -457,3 +457,44 @@ Next test should also try Chrome or Safari alongside Firefox, to check whether t
 
 Tests: 3 new cases (55 total) covering the expiry log format, stats logging on connection loss, and
 that a missing/unavailable `getStats()` doesn't throw.
+
+## 2026-07-22 — Root cause found: Firefox-specific NAT/router UDP mapping timeout, not a session limit
+
+Decisive comparison test: identical code, same machine, same network — **Chrome completed a full
+multi-turn conversation with zero disconnects**; Firefox disconnected at ~41s and ~42s across two
+consecutive reconnects in the same session, matching every prior measurement. This alone rules out
+the NAT-router-timeout-affecting-everyone theory from the previous entry (same router would affect
+both browsers) and rules out any server-side/OpenAI-side session limit (already suspected false
+given the documented 60-minute limit, now confirmed: token `expires_at` was 600s in both browsers,
+and Chrome ran well past 41-42s with no issue at all).
+
+The `getStats()` diagnostic gave a real, non-speculative signal on the *why*: the actively-used
+candidate pair, at the moment of disconnect, showed substantial bidirectional traffic
+(`bytesSent: 213381, bytesReceived: 271783`) and a healthy `currentRoundTripTime` (~38ms) — not a
+degraded or starved connection. But `lastPacketSentTimestamp` was **~8 seconds after**
+`lastPacketReceivedTimestamp` — the client kept transmitting for 8 more seconds after the server's
+inbound traffic had already stopped arriving. That specific asymmetry (inbound stops first, outbound
+keeps going) is the textbook signature of a NAT/router UDP mapping timeout on the return path:
+outbound UDP doesn't need an existing mapping to leave the network, but inbound return traffic does,
+and a silently-expired mapping just drops incoming packets with no error surfaced to either side.
+
+Reconciling with the same-router-should-affect-both-browsers objection: this doesn't require the
+router's timeout value itself to differ per browser — only that Firefox's ICE implementation sends
+consent-freshness/keepalive traffic less aggressively than Chrome's, letting the identical mapping
+lapse under Firefox but not under Chrome. Not independently confirmed (would need packet-capture-level
+comparison of the two browsers' ICE keepalive cadence to prove directly), but consistent with every
+observation so far and a well-known category of real Firefox WebRTC behavior difference.
+
+**Conclusion: "seamless renewal" (the original plan before this diagnostic pivot) would have been
+solving a problem that doesn't really exist as a fixed session limit — it was chasing a
+Firefox-specific connectivity bug.** Auto-reconnect (already built, working well) is arguably the
+*right* mitigation for this specific failure mode regardless of browser, precisely because the root
+cause is an unpredictable, environment-dependent NAT/keepalive interaction rather than a fixed,
+schedulable boundary — there's no fixed "quiet moment before the cap" to renew around, since there's
+no real cap, just an unlucky router/browser interaction that could in principle happen at any time. A
+practical near-term recommendation is Chrome/Chromium-based browsers, which have shown zero instances
+of this failure mode in testing.
+
+Diagnostic code (token expiry logging, `getStats()` candidate-pair logging) is being kept in
+`session.js` rather than removed now that its job is done — genuinely useful if this class of issue
+resurfaces (different network, different browser update, etc.).
