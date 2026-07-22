@@ -9,14 +9,20 @@
 //   AI audio comes back as a remote MediaStream track played by an <audio> element.
 //
 // Flow:
-//   1. POST /v1/realtime/sessions with API key → ephemeral token (60s TTL)
+//   1. POST /v1/realtime/client_secrets with API key + session config → ephemeral token
 //   2. getUserMedia for mic
 //   3. Create RTCPeerConnection, add mic track, create data channel for events
 //   4. createOffer → setLocalDescription
-//   5. POST /v1/realtime?model=... with SDP offer + ephemeral key → SDP answer
+//   5. POST /v1/realtime/calls with SDP offer + ephemeral key → SDP answer
 //   6. setRemoteDescription → WebRTC connected
 //   7. Data channel opens → send session.update to configure VAD, instructions, etc.
 //   8. Optionally send response.create to trigger opening greeting
+//
+// NOTE (2026-07-22): OpenAI migrated the Realtime API's REST/session schema
+// (endpoints, model name, and several server event names) since this file was
+// first written. Updated against OpenAI's current docs — see docs/DECISIONS.md
+// for exactly what changed and what's still best-effort (the transcription
+// event's payload shape wasn't confirmed verbatim from docs).
 
 class RealtimeSession {
   constructor() {
@@ -66,15 +72,20 @@ class RealtimeSession {
       this._setStatus('connecting');
 
       // Step 1: Exchange API key for a short-lived ephemeral token.
-      const tokenRes = await fetch('https://api.openai.com/v1/realtime/sessions', {
+      const tokenRes = await fetch('https://api.openai.com/v1/realtime/client_secrets', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: options.model || 'gpt-4o-realtime-preview',
-          voice: options.voice || 'alloy'
+          session: {
+            type: 'realtime',
+            model: options.model || 'gpt-realtime-2.1',
+            audio: {
+              output: { voice: options.voice || 'alloy' }
+            }
+          }
         })
       });
 
@@ -83,8 +94,8 @@ class RealtimeSession {
         throw new Error(err.error?.message || `Session creation failed (${tokenRes.status})`);
       }
 
-      const { client_secret } = await tokenRes.json();
-      const ephemeralKey = client_secret.value;
+      const tokenData = await tokenRes.json();
+      const ephemeralKey = tokenData.value;
 
       // Step 2: Open microphone.
       this.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -109,18 +120,30 @@ class RealtimeSession {
 
       this.dc.onopen = () => {
         // Session is live — configure it.
+        // `modalities` -> `output_modalities`; voice/turn_detection/transcription
+        // moved under nested audio.output / audio.input. The
+        // audio.input.transcription field name is a best-effort port (not shown
+        // verbatim in the docs sample this was migrated from) — verify against
+        // a live session.
         this._send({
           type: 'session.update',
           session: {
-            modalities: ['audio', 'text'],
+            type: 'realtime',
+            output_modalities: ['audio'],
             instructions: options.instructions || 'You are a helpful assistant.',
-            voice: options.voice || 'alloy',
-            input_audio_transcription: { model: 'whisper-1' },
-            turn_detection: {
-              type: 'server_vad',
-              threshold: 0.5,
-              prefix_padding_ms: 300,
-              silence_duration_ms: 1500
+            audio: {
+              input: {
+                transcription: { model: 'whisper-1' },
+                turn_detection: {
+                  type: 'server_vad',
+                  threshold: 0.5,
+                  prefix_padding_ms: 300,
+                  silence_duration_ms: 1500
+                }
+              },
+              output: {
+                voice: options.voice || 'alloy'
+              }
             }
           }
         });
@@ -151,8 +174,9 @@ class RealtimeSession {
       await this.pc.setLocalDescription(offer);
 
       // Step 8: Exchange SDP with OpenAI using the ephemeral key in a normal HTTP header.
-      const model = options.model || 'gpt-4o-realtime-preview';
-      const sdpRes = await fetch(`https://api.openai.com/v1/realtime?model=${model}`, {
+      // Endpoint moved from /v1/realtime?model=... to /v1/realtime/calls — model
+      // is now specified in the client_secrets request instead of a query param.
+      const sdpRes = await fetch('https://api.openai.com/v1/realtime/calls', {
         method: 'POST',
         body: offer.sdp,
         headers: {
@@ -238,13 +262,25 @@ class RealtimeSession {
         if (this.onUserSpeechEnd) this.onUserSpeechEnd();
         break;
 
+      // OpenAI renamed this event to 'conversation.item.done' as part of the
+      // same migration; the exact payload shape wasn't confirmed verbatim from
+      // docs, so this checks a couple of plausible locations for the
+      // transcript and warns rather than silently dropping the user's turn.
+      // Kept the old event name too in case it's still emitted for back-compat.
       case 'conversation.item.input_audio_transcription.completed':
-        if (msg.transcript && this.onUserTranscript) {
-          this.onUserTranscript(msg.transcript.trim());
+      case 'conversation.item.done': {
+        const transcript = msg.transcript
+          || msg.item?.content?.find(c => c.transcript)?.transcript;
+        if (transcript && this.onUserTranscript) {
+          this.onUserTranscript(transcript.trim());
+        } else if (msg.type === 'conversation.item.done') {
+          console.warn('RealtimeSession: conversation.item.done had no recognizable transcript field', msg);
         }
         break;
+      }
 
       case 'response.audio_transcript.delta':
+      case 'response.output_audio_transcript.delta':
         // First delta means AI started speaking.
         if (!this.isSpeaking) {
           this.isSpeaking = true;
@@ -255,6 +291,7 @@ class RealtimeSession {
         break;
 
       case 'response.audio_transcript.done':
+      case 'response.output_audio_transcript.done':
         if (this.onAITranscript) this.onAITranscript(this.aiTranscriptBuffer, true);
         this.aiTranscriptBuffer = '';
         break;

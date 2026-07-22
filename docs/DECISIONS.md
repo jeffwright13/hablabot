@@ -109,3 +109,46 @@ Deliberately left alone: the Speech Rate / Volume sliders in the same Settings s
 category of vestigial UI (the Realtime API has no equivalent "slow down the TTS" control — it's a
 live audio stream, not a static request), but that wasn't the reported bug, so didn't expand scope
 to fix them here.
+
+## 2026-07-22 — OpenAI Realtime API schema migration (session.js) — mixed confidence
+
+Manual testing surfaced a hard 404 on `connect()`: `POST /v1/realtime/sessions` returned
+`Invalid URL (POST /v1/realtime/sessions)`. Not caused by either of the two fixes just merged —
+OpenAI has migrated a substantial part of the Realtime API's schema since `session.js` was
+originally written, unrelated to any HablaBot change. Verified against OpenAI's current docs
+(`developers.openai.com/api/docs/guides/realtime-webrtc` and `realtime-conversations`) via several
+targeted fetches, asking for verbatim code samples rather than paraphrases where possible. Two
+confidence tiers:
+
+**High confidence (confirmed via literal code samples in the docs):**
+- Ephemeral token endpoint: `POST /v1/realtime/sessions` → `POST /v1/realtime/client_secrets`,
+  with a nested `{ session: { type, model, audio: { output: { voice } } } }` body instead of a flat
+  `{ model, voice }` one.
+- Ephemeral token response field: `client_secret.value` → `value` (top-level).
+- SDP exchange endpoint: `POST /v1/realtime?model=...` → `POST /v1/realtime/calls` (model is now
+  set during the client_secrets request, not a query param here).
+- Model name: `gpt-4o-realtime-preview` → `gpt-realtime-2.1`.
+- Server event renames: `response.audio_transcript.delta`/`.done` →
+  `response.output_audio_transcript.delta`/`.done`. `input_audio_buffer.speech_started`/`_stopped`,
+  `session.created`/`.updated`, and `response.done` are unchanged.
+
+**Best-effort / not confirmed verbatim — flag if transcripts silently stop working:**
+- `session.update`'s nesting: top-level `modalities` → `output_modalities`; `voice`,
+  `turn_detection`, and transcription config moved under nested `audio.output` / `audio.input`.
+  The docs sample fetched showed `audio.input.turn_detection` with `"type": "semantic_vad"` — kept
+  `server_vad` with the same threshold/prefix_padding_ms/silence_duration_ms fields HablaBot already
+  used, since the docs didn't confirm whether `server_vad`'s granular fields still apply once
+  nested, or whether `semantic_vad` is now expected instead. Went with the least-risky assumption
+  (relocate, don't change semantics) rather than guess at a behavior change.
+- `audio.input.transcription` field name: the docs sample didn't show transcription config at all,
+  only turn_detection — this is a plausible-but-unconfirmed guess at the field name, ported from
+  the old flat `input_audio_transcription`.
+- The transcription-completed event itself was renamed from
+  `conversation.item.input_audio_transcription.completed` to a generic `conversation.item.done`,
+  and the docs didn't show its payload shape verbatim. `session.js`'s handler now listens for both
+  event names, tries `msg.transcript` and a nested `msg.item.content[].transcript` guess, and
+  `console.warn`s with the full message if neither matches — so a live test will surface a concrete
+  payload to fix against, rather than silently dropping every user turn.
+
+Filed as its own fix rather than folded into #4/#5 since it's unrelated API drift, not a HablaBot
+bug per se.
