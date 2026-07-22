@@ -212,3 +212,22 @@ before the reconnect. There's no mechanism here to replay prior conversation his
 session (and no way to build one reliably right now anyway, since the transcript-null issue above
 means user turns aren't even being captured as text to replay). If the null-transcript issue gets
 resolved, revisit whether replaying history into each reconnected session is worth adding.
+
+## 2026-07-22 — Auto-reconnect wasn't triggering: was listening to the wrong event
+
+Manual testing showed `connectionState` reaching `'disconnected'` with `dc.onclose` **never
+firing** — the log just stopped there, no reconnect attempt logged, matching the user's report of
+still-truncated playback even with auto-reconnect in place. `RTCPeerConnection` reaching
+`'disconnected'`/`'failed'` doesn't reliably or promptly trigger the data channel's `close` event;
+they're not the same signal. Gating all recovery logic on `dc.onclose` alone left a real gap where
+the connection was visibly dead but nothing reacted.
+
+Extracted the teardown/reconnect decision out of `dc.onclose` into a shared `_onConnectionLost(reason)`,
+now also called directly from `pc.onconnectionstatechange`: `'failed'` triggers it immediately
+(unambiguous, terminal per the WebRTC spec); `'disconnected'` gets a 3-second grace period first,
+since that state can be transient and self-recover without needing to reconnect at all. `dc.onclose`
+still calls the same shared method, now just a backstop for a data-channel-specific failure that
+doesn't show up as a connection-state change. Made `_onConnectionLost` idempotent (checks
+`_connectedAt`/`isConnected` before doing anything) so redundant signals for the same drop — e.g. a
+delayed `dc.onclose` arriving after `onconnectionstatechange` already handled it — don't
+double-trigger teardown or stack up reconnect attempts.

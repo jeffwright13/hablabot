@@ -147,14 +147,28 @@ class RealtimeSession {
         iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
       });
 
-      // Diagnostic: log WebRTC connection state changes so a mid-response
-      // audio cutoff can be attributed to a dropped connection (vs. a VAD
-      // barge-in, vs. something server-side) instead of failing silently.
+      // Log WebRTC connection state changes, and — critically — trigger
+      // reconnect from here, not just dc.onclose. Manual testing showed
+      // connectionState reaching 'disconnected' with dc.onclose never firing
+      // at all, leaving the app stuck with dead audio and no recovery
+      // attempted. 'failed' is unambiguous and terminal; 'disconnected' can be
+      // a transient blip that self-recovers, so it gets a short grace period
+      // before being treated as a real loss.
       this.pc.oniceconnectionstatechange = () => {
         console.log('RealtimeSession: ICE connection state ->', this.pc.iceConnectionState);
       };
       this.pc.onconnectionstatechange = () => {
-        console.log('RealtimeSession: peer connection state ->', this.pc.connectionState);
+        const state = this.pc.connectionState;
+        console.log('RealtimeSession: peer connection state ->', state);
+        if (state === 'failed') {
+          this._onConnectionLost('peer connection failed');
+        } else if (state === 'disconnected') {
+          setTimeout(() => {
+            if (this.pc && (this.pc.connectionState === 'disconnected' || this.pc.connectionState === 'failed')) {
+              this._onConnectionLost('peer connection still disconnected after grace period');
+            }
+          }, 3000);
+        }
       };
 
       // Step 4: Route incoming AI audio to an <audio> element.
@@ -222,38 +236,15 @@ class RealtimeSession {
         }
       };
 
-      // Fires when the connection drops on its own (network issue, or a
-      // session/token lifetime limit on OpenAI's side) — NOT when disconnect()
+      // Fires when the data channel closes on its own — NOT when disconnect()
       // is called deliberately, which nulls this handler out first (see
-      // disconnect() below). Distinguishing the two matters because the UI
-      // should surface "your session ended unexpectedly" rather than silently
-      // going quiet, which is what an unattributed 'idle' looked like to the
-      // user during manual testing ("froze").
-      //
-      // Also drives auto-reconnect: sessions appear to have a ~1 minute cap,
-      // so a drop here is expected to happen periodically, not necessarily a
-      // real failure — retry transparently before surfacing anything.
+      // disconnect() below). In practice this can lag well behind or never
+      // fire at all when the underlying connection dies (see
+      // onconnectionstatechange above, which is now the primary trigger) —
+      // kept as a backstop in case a data-channel-specific failure happens
+      // without a corresponding connection-state change.
       this.dc.onclose = () => {
-        const wasConnected = !!this._connectedAt;
-        if (wasConnected) {
-          const seconds = ((Date.now() - this._connectedAt) / 1000).toFixed(1);
-          console.warn(`RealtimeSession: connection closed unexpectedly after ${seconds}s connected`);
-        }
-        this._teardown();
-
-        if (wasConnected && this._lastConnectArgs && this._reconnectAttempts < this._maxReconnectAttempts) {
-          this._reconnectAttempts++;
-          console.log(`RealtimeSession: auto-reconnecting (attempt ${this._reconnectAttempts}/${this._maxReconnectAttempts})`);
-          setTimeout(() => {
-            this.connect(this._lastConnectArgs.apiKey, this._lastConnectArgs.options, true)
-              .catch(err => console.error('RealtimeSession: auto-reconnect failed', err));
-          }, this._reconnectDelayMs);
-        } else {
-          if (wasConnected && this._reconnectAttempts >= this._maxReconnectAttempts) {
-            console.error('RealtimeSession: auto-reconnect attempts exhausted, giving up');
-          }
-          this._setStatus('idle', { unexpected: wasConnected });
-        }
+        this._onConnectionLost('data channel closed');
       };
 
       this.dc.onerror = (e) => {
@@ -333,6 +324,37 @@ class RealtimeSession {
     this.isConnected = false;
     this.isSpeaking = false;
     this._connectedAt = null;
+  }
+
+  // Shared handler for any signal that the connection is gone — called from
+  // both pc.onconnectionstatechange (primary; fires promptly) and dc.onclose
+  // (backstop; can lag or never fire on its own). Idempotent: if a previous
+  // call already tore the connection down (_connectedAt already null), a
+  // second signal for the same drop is a no-op instead of double-triggering
+  // teardown/reconnect.
+  _onConnectionLost(reason) {
+    if (!this._connectedAt && !this.isConnected) return;
+
+    const wasConnected = !!this._connectedAt;
+    if (wasConnected) {
+      const seconds = ((Date.now() - this._connectedAt) / 1000).toFixed(1);
+      console.warn(`RealtimeSession: connection lost (${reason}) after ${seconds}s connected`);
+    }
+    this._teardown();
+
+    if (wasConnected && this._lastConnectArgs && this._reconnectAttempts < this._maxReconnectAttempts) {
+      this._reconnectAttempts++;
+      console.log(`RealtimeSession: auto-reconnecting (attempt ${this._reconnectAttempts}/${this._maxReconnectAttempts})`);
+      setTimeout(() => {
+        this.connect(this._lastConnectArgs.apiKey, this._lastConnectArgs.options, true)
+          .catch(err => console.error('RealtimeSession: auto-reconnect failed', err));
+      }, this._reconnectDelayMs);
+    } else {
+      if (wasConnected && this._reconnectAttempts >= this._maxReconnectAttempts) {
+        console.error('RealtimeSession: auto-reconnect attempts exhausted, giving up');
+      }
+      this._setStatus('idle', { unexpected: wasConnected });
+    }
   }
 
   _send(obj) {
