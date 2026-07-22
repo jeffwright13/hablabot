@@ -53,7 +53,10 @@ class RealtimeSession {
     this._lastConnectArgs = null;
     this._reconnectAttempts = 0;
     this._maxReconnectAttempts = 5;
-    this._reconnectDelayMs = 1000;
+    // 2s, not 1s — manual testing hit a 409 on the very first reconnect's SDP
+    // exchange, suggesting OpenAI hadn't finished releasing the old call's
+    // resources yet at the 1s mark.
+    this._reconnectDelayMs = 2000;
 
     // --- Public callbacks ---
     // (status: 'connecting'|'active'|'idle'|'error'|'reconnecting', meta?: { unexpected?: boolean }) => {}
@@ -279,9 +282,28 @@ class RealtimeSession {
 
     } catch (err) {
       console.error('RealtimeSession: connect failed', err);
+      this._teardown(); // doesn't clear _lastConnectArgs, unlike disconnect() — a failed
+                         // reconnect attempt still needs it for the next retry below.
+
+      // A reconnect attempt itself failing (e.g. OpenAI returning 409 on the
+      // SDP exchange because the previous call's resources aren't released
+      // yet server-side) isn't a fatal, user-facing error — keep retrying up
+      // to the same cap, same as a connection that dropped on its own.
+      if (_isReconnect && this._lastConnectArgs && this._reconnectAttempts < this._maxReconnectAttempts) {
+        this._reconnectAttempts++;
+        console.log(`RealtimeSession: auto-reconnect attempt failed (${err.message}), retrying (${this._reconnectAttempts}/${this._maxReconnectAttempts})`);
+        setTimeout(() => {
+          this.connect(this._lastConnectArgs.apiKey, this._lastConnectArgs.options, true)
+            .catch(err2 => console.error('RealtimeSession: auto-reconnect retry failed', err2));
+        }, this._reconnectDelayMs);
+        return;
+      }
+
+      // Either the original (non-reconnect) connect() failed, or reconnect
+      // attempts are exhausted — this is now a real, user-facing failure.
       if (this.onError) this.onError(err.message);
-      this._setStatus('error');
-      this.disconnect();
+      this._lastConnectArgs = null;
+      this._setStatus(_isReconnect ? 'idle' : 'error', _isReconnect ? { unexpected: true } : {});
       throw err;
     }
   }

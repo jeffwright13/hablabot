@@ -231,3 +231,24 @@ doesn't show up as a connection-state change. Made `_onConnectionLost` idempoten
 `_connectedAt`/`isConnected` before doing anything) so redundant signals for the same drop — e.g. a
 delayed `dc.onclose` arriving after `onconnectionstatechange` already handled it — don't
 double-trigger teardown or stack up reconnect attempts.
+
+## 2026-07-22 — Reconnect attempt itself failing (409) silently killed all remaining retries
+
+Manual testing: reconnect triggered correctly this time (fixed by the previous entry), but the
+reconnect's own SDP exchange got `409` from `POST /v1/realtime/calls` — plausibly OpenAI hadn't
+finished releasing the previous (dead) call's resources yet, only ~1s after the drop was detected.
+That 409 is a plausible, recoverable, transient condition, not a fatal error.
+
+But it exposed a real bug in `connect()`'s `catch` block: it always called the public `disconnect()`
+on any failure, which unconditionally clears `_lastConnectArgs` — so a reconnect attempt's own
+failure silently killed every subsequent retry after just one try, instead of continuing up to
+`_maxReconnectAttempts`. The log confirmed this exactly: "attempt 1/5" tried once, failed, and
+nothing tried again despite 4 more attempts being budgeted.
+
+Fixed: the catch block now calls `_teardown()` directly (leaves `_lastConnectArgs` alone) and, when
+`_isReconnect` is true and attempts remain, retries the same way `_onConnectionLost` does, rather
+than unconditionally giving up. Only clears `_lastConnectArgs` and surfaces a real user-facing
+error/idle-unexpected status once genuinely out of attempts (or if it was the original, non-reconnect
+`connect()` call that failed — e.g. a bad API key — which should still fail immediately as before).
+Also bumped `_reconnectDelayMs` from 1s to 2s to give OpenAI's side more time to release the old
+call before the next attempt.
