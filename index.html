@@ -55,10 +55,6 @@
                         <span class="nav-icon">📚</span>
                         <span class="nav-label">Vocabulary</span>
                     </button>
-                    <button id="progress-btn" class="nav-btn" data-view="progress">
-                        <span class="nav-icon">📊</span>
-                        <span class="nav-label">Progress</span>
-                    </button>
                     <button id="settings-btn" class="nav-btn" data-view="settings">
                         <span class="nav-icon">⚙️</span>
                         <span class="nav-label">Settings</span>
@@ -214,42 +210,6 @@
                 </div>
             </section>
 
-            <!-- Progress View -->
-            <section id="progress-view" class="view" hidden>
-                <h2>Learning Progress</h2>
-                <div class="progress-content">
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <h3>Total Words</h3>
-                            <span id="total-words-stat" class="stat-number">0</span>
-                        </div>
-                        <div class="stat-card">
-                            <h3>Words Mastered</h3>
-                            <span id="mastered-words-stat" class="stat-number">0</span>
-                        </div>
-                        <div class="stat-card">
-                            <h3>Conversation Time</h3>
-                            <span id="conversation-time-stat" class="stat-number">0h</span>
-                        </div>
-                        <div class="stat-card">
-                            <h3>Current Streak</h3>
-                            <span id="streak-stat" class="stat-number">0</span>
-                        </div>
-                    </div>
-                    
-                    <div class="progress-charts">
-                        <div class="chart-container">
-                            <h3>Daily Progress</h3>
-                            <canvas id="daily-progress-chart"></canvas>
-                        </div>
-                        <div class="chart-container">
-                            <h3>Vocabulary Mastery</h3>
-                            <canvas id="mastery-chart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
             <!-- Settings View -->
             <section id="settings-view" class="view" hidden>
                 <h2>Settings</h2>
@@ -310,28 +270,6 @@
                         </div>
                     </div>
                     
-                    <div class="settings-group">
-                        <h3>Learning Preferences</h3>
-                        <div class="setting-item">
-                            <label for="correction-frequency">Correction Frequency:</label>
-                            <select id="correction-frequency">
-                                <option value="immediate">Immediate</option>
-                                <option value="end-of-sentence">End of Sentence</option>
-                                <option value="end-of-conversation">End of Conversation</option>
-                            </select>
-                        </div>
-                        <div class="setting-item">
-                            <label for="new-words-per-session">New Words per Session:</label>
-                            <input type="number" id="new-words-per-session" min="1" max="10" value="5">
-                        </div>
-                    </div>
-                    
-                    <div class="settings-group">
-                        <h3>Data Management</h3>
-                        <button id="export-all-data" class="secondary-btn">Export All Data</button>
-                        <button id="import-data" class="secondary-btn">Import Data</button>
-                        <button id="clear-all-data" class="danger-btn">Clear All Data</button>
-                    </div>
                 </div>
             </section>
         </main>
@@ -374,7 +312,6 @@
     <script src="js/realtime/turn-profiles.js"></script>
     <script src="js/ai/prompts.js"></script>
     <script src="js/ai/conversation.js"></script>
-    <script src="js/vocabulary/spaced-repetition.js"></script>
     <script src="js/vocabulary/manager.js"></script>
     <script src="js/utils/audio.js"></script>
     <script src="js/app.js"></script>

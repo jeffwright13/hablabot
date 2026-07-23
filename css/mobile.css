@@ -75,12 +75,6 @@
     gap: var(--spacing-sm);
   }
 
-  /* Stats grid - single column on mobile */
-  .stats-grid {
-    grid-template-columns: 1fr;
-    gap: var(--spacing-md);
-  }
-
   /* Settings adjustments */
   .setting-item {
     grid-template-columns: 1fr;
@@ -283,7 +277,6 @@
 
   .conversation-setup,
   .vocabulary-content,
-  .progress-content,
   .settings-content {
     background: #2d2d2d;
     border: 1px solid #4a4a4a;

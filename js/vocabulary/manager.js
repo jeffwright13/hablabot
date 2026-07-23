@@ -2,14 +2,12 @@
 class VocabularyManager {
   constructor() {
     this.database = null;
-    this.spacedRepetition = null;
     this.vocabularyList = [];
     this.filteredList = [];
     this.currentFilters = {
       search: '',
       category: '',
-      difficulty: '',
-      masteryLevel: ''
+      difficulty: ''
     };
     
     // Event callbacks
@@ -25,10 +23,9 @@ class VocabularyManager {
   }
 
   // Initialize vocabulary manager
-  async init(database, spacedRepetition) {
+  async init(database) {
     this.database = database;
-    this.spacedRepetition = spacedRepetition;
-    
+
     // Load vocabulary from database
     await this.loadVocabulary();
     
@@ -206,18 +203,6 @@ class VocabularyManager {
     return this.filteredList;
   }
 
-  // Filter by mastery level
-  filterByMasteryLevel(masteryLevel) {
-    this.currentFilters.masteryLevel = masteryLevel;
-    this.applyFilters();
-    
-    if (this.onVocabularyUpdate) {
-      this.onVocabularyUpdate(this.filteredList);
-    }
-    
-    return this.filteredList;
-  }
-
   // Apply all current filters
   applyFilters() {
     this.filteredList = this.vocabularyList.filter(item => {
@@ -242,17 +227,7 @@ class VocabularyManager {
       if (this.currentFilters.difficulty && item.difficulty !== parseInt(this.currentFilters.difficulty)) {
         return false;
       }
-      
-      // Mastery level filter
-      if (this.currentFilters.masteryLevel) {
-        const masteryLevel = item.masteryLevel || 0;
-        const filterLevel = parseInt(this.currentFilters.masteryLevel);
-        
-        if (masteryLevel !== filterLevel) {
-          return false;
-        }
-      }
-      
+
       return true;
     });
   }
@@ -262,8 +237,7 @@ class VocabularyManager {
     this.currentFilters = {
       search: '',
       category: '',
-      difficulty: '',
-      masteryLevel: ''
+      difficulty: ''
     };
     
     this.filteredList = [...this.vocabularyList];
@@ -273,52 +247,34 @@ class VocabularyManager {
     }
   }
 
-  // Get words for review using spaced repetition
-  async getWordsForReview(limit = 10) {
-    if (!this.spacedRepetition) {
-      throw new Error('Spaced repetition not initialized');
-    }
-    
-    return this.spacedRepetition.getWordsForReview(this.vocabularyList, new Date(), limit);
-  }
-
-  // Update word performance after practice
-  async updateWordPerformance(wordId, responseQuality) {
-    try {
-      const word = this.getVocabularyItem(wordId);
-      if (!word) {
-        throw new Error('Word not found');
-      }
-      
-      // Update using spaced repetition algorithm
-      const updatedWord = this.spacedRepetition.updateWordScheduling(word, responseQuality);
-      
-      // Save to database
-      await this.database.put('vocabulary', updatedWord);
-      
-      // Update local list
-      const index = this.vocabularyList.findIndex(item => item.id === wordId);
-      this.vocabularyList[index] = updatedWord;
-      
-      // Update filtered list
-      this.applyFilters();
-      
-      console.log(`Updated performance for word: ${updatedWord.spanish}`);
-      return updatedWord;
-      
-    } catch (error) {
-      console.error('Failed to update word performance:', error);
-      throw error;
-    }
-  }
-
-  // Select words for conversation session
+  // Select target words for a conversation session. Coarse-grained only --
+  // filtered by the session's difficulty level and scenario, then picked at
+  // random. There's no per-word mastery/scheduling concept here: a 20-30
+  // minute conversation doesn't operate on the multi-day timescale spaced
+  // repetition is designed for, so difficulty (chosen once, per session) is
+  // the only "how hard should this be" knob. See docs/DECISIONS.md.
   selectWordsForSession(options = {}) {
-    if (!this.spacedRepetition) {
-      throw new Error('Spaced repetition not initialized');
+    const { maxWords = 5, difficulty = 'mixed', scenario = null } = options;
+
+    let candidates = [...this.vocabularyList];
+
+    if (difficulty !== 'mixed') {
+      const difficultyMap = {
+        beginner: [1, 2],
+        intermediate: [3, 4],
+        advanced: [4, 5]
+      };
+      const targetDifficulties = difficultyMap[difficulty] || [1, 2, 3, 4, 5];
+      candidates = candidates.filter(word => targetDifficulties.includes(word.difficulty || 1));
     }
-    
-    return this.spacedRepetition.selectWordsForSession(this.vocabularyList, options);
+
+    if (scenario) {
+      candidates = candidates.filter(word =>
+        word.category === scenario || (word.tags && word.tags.includes(scenario))
+      );
+    }
+
+    return H.shuffle(candidates).slice(0, maxWords);
   }
 
   // Import vocabulary from CSV
@@ -404,10 +360,10 @@ class VocabularyManager {
   // Export vocabulary to CSV
   exportToCSV() {
     try {
-      const headers = ['spanish', 'english', 'phonetic', 'difficulty', 'category', 'examples', 'tags', 'masteryLevel'];
-      
+      const headers = ['spanish', 'english', 'phonetic', 'difficulty', 'category', 'examples', 'tags'];
+
       let csvContent = headers.join(',') + '\n';
-      
+
       this.vocabularyList.forEach(item => {
         const row = [
           `"${item.spanish}"`,
@@ -416,8 +372,7 @@ class VocabularyManager {
           item.difficulty || 1,
           `"${item.category || 'general'}"`,
           `"${(item.examples || []).join(';')}"`,
-          `"${(item.tags || []).join(',')}"`,
-          item.masteryLevel || 0
+          `"${(item.tags || []).join(',')}"`
         ];
         
         csvContent += row.join(',') + '\n';
@@ -453,38 +408,17 @@ class VocabularyManager {
     const stats = {
       total: this.vocabularyList.length,
       byCategory: {},
-      byDifficulty: {},
-      byMasteryLevel: {},
-      averageMastery: 0,
-      wordsForReview: 0
+      byDifficulty: {}
     };
-    
-    let totalMastery = 0;
-    const today = new Date();
-    
+
     this.vocabularyList.forEach(item => {
       // By category
       stats.byCategory[item.category] = (stats.byCategory[item.category] || 0) + 1;
-      
+
       // By difficulty
       stats.byDifficulty[item.difficulty] = (stats.byDifficulty[item.difficulty] || 0) + 1;
-      
-      // By mastery level
-      const masteryLevel = Math.floor(item.masteryLevel || 0);
-      stats.byMasteryLevel[masteryLevel] = (stats.byMasteryLevel[masteryLevel] || 0) + 1;
-      
-      // Average mastery
-      totalMastery += item.masteryLevel || 0;
-      
-      // Words for review
-      if (item.nextReviewDate && new Date(item.nextReviewDate) <= today) {
-        stats.wordsForReview++;
-      }
     });
-    
-    stats.averageMastery = this.vocabularyList.length > 0 ? 
-      Math.round((totalMastery / this.vocabularyList.length) * 10) / 10 : 0;
-    
+
     return stats;
   }
 
@@ -498,32 +432,19 @@ class VocabularyManager {
     return this.vocabularyList.filter(item => item.difficulty === difficulty);
   }
 
-  // Get words by mastery level
-  getWordsByMasteryLevel(masteryLevel) {
-    return this.vocabularyList.filter(item => 
-      Math.floor(item.masteryLevel || 0) === masteryLevel
-    );
-  }
-
   // Get random words for practice
   getRandomWords(count = 5, filters = {}) {
     let candidates = this.vocabularyList;
-    
+
     // Apply filters
     if (filters.category) {
       candidates = candidates.filter(item => item.category === filters.category);
     }
-    
+
     if (filters.difficulty) {
       candidates = candidates.filter(item => item.difficulty === filters.difficulty);
     }
-    
-    if (filters.maxMasteryLevel !== undefined) {
-      candidates = candidates.filter(item => 
-        (item.masteryLevel || 0) <= filters.maxMasteryLevel
-      );
-    }
-    
+
     // Shuffle and return requested count
     const shuffled = H.shuffle(candidates);
     return shuffled.slice(0, Math.min(count, shuffled.length));
@@ -581,7 +502,6 @@ class VocabularyManager {
   // Clean up resources
   destroy() {
     this.database = null;
-    this.spacedRepetition = null;
     this.vocabularyList = [];
     this.filteredList = [];
     this.onVocabularyUpdate = null;

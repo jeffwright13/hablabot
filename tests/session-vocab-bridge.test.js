@@ -1,11 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import SessionVocabBridge from '../js/realtime/session-vocab-bridge.js';
-
-function makeMockVocabularyManager() {
-  return {
-    updateWordPerformance: vi.fn().mockResolvedValue(undefined),
-  };
-}
 
 const TARGET_WORDS = [
   { id: 'w1', spanish: 'playa' },
@@ -14,24 +8,20 @@ const TARGET_WORDS = [
 
 describe('SessionVocabBridge', () => {
   let bridge;
-  let vocabManager;
 
   beforeEach(() => {
-    vocabManager = makeMockVocabularyManager();
     bridge = new SessionVocabBridge();
-    bridge.init(vocabManager);
+    bridge.init();
   });
 
-  it('detects a target word spoken in a transcript and updates its performance', async () => {
+  it('detects a target word spoken in a transcript', async () => {
     const matched = await bridge.trackUserTranscript('Quiero ir a la playa mañana', TARGET_WORDS);
     expect(matched.map(w => w.id)).toEqual(['w1']);
-    expect(vocabManager.updateWordPerformance).toHaveBeenCalledWith('w1', expect.any(Number));
   });
 
   it('ignores target words that were not spoken', async () => {
     const matched = await bridge.trackUserTranscript('Hace mucho calor hoy', TARGET_WORDS);
     expect(matched).toEqual([]);
-    expect(vocabManager.updateWordPerformance).not.toHaveBeenCalled();
   });
 
   it('detects multiple target words in one transcript', async () => {
@@ -59,6 +49,5 @@ describe('SessionVocabBridge', () => {
   it('does nothing gracefully when there are no target words for the session', async () => {
     const matched = await bridge.trackUserTranscript('cualquier cosa', []);
     expect(matched).toEqual([]);
-    expect(vocabManager.updateWordPerformance).not.toHaveBeenCalled();
   });
 });

@@ -27,7 +27,6 @@ const STATIC_CACHE_URLS = [
   './js/realtime/session-vocab-bridge.js',
   './js/realtime/turn-profiles.js',
   './js/vocabulary/manager.js',
-  './js/vocabulary/spaced-repetition.js',
   './js/storage/database.js',
   './js/ui/components.js',
   './js/ui/state.js',

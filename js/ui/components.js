@@ -14,12 +14,10 @@ class UIComponents {
 
   // Create vocabulary item card
   createVocabularyCard(vocabularyItem) {
-    const masteryLevel = vocabularyItem.masteryLevel || 0;
-    const masteryClass = this.getMasteryClass(masteryLevel);
     const difficultyStars = '★'.repeat(vocabularyItem.difficulty || 1);
-    
+
     const card = H.createElement('div', {
-      className: `vocabulary-card ${masteryClass}`,
+      className: 'vocabulary-card',
       'data-word-id': vocabularyItem.id
     });
     
@@ -48,9 +46,6 @@ class UIComponents {
             ${difficultyStars}
           </span>
           <span class="vocab-category">${H.escapeHtml(vocabularyItem.category || 'general')}</span>
-          <span class="vocab-mastery" title="Mastery Level: ${masteryLevel}/10">
-            🎯 ${masteryLevel.toFixed(1)}
-          </span>
         </div>
         
         ${vocabularyItem.examples && vocabularyItem.examples.length > 0 ? `
@@ -71,24 +66,10 @@ class UIComponents {
             ).join('')}
           </div>
         ` : ''}
-        
-        ${vocabularyItem.nextReviewDate ? `
-          <div class="vocab-review-date">
-            Next review: ${H.formatDate(new Date(vocabularyItem.nextReviewDate))}
-          </div>
-        ` : ''}
       </div>
     `;
-    
-    return card;
-  }
 
-  // Get mastery level CSS class
-  getMasteryClass(masteryLevel) {
-    if (masteryLevel >= 8) return 'mastery-high';
-    if (masteryLevel >= 5) return 'mastery-medium';
-    if (masteryLevel >= 2) return 'mastery-low';
-    return 'mastery-new';
+    return card;
   }
 
   // Create add vocabulary modal
@@ -202,25 +183,6 @@ class UIComponents {
           <div class="form-group">
             <label for="edit-vocab-tags">Tags (comma-separated)</label>
             <input type="text" id="edit-vocab-tags" value="${(vocabularyItem.tags || []).join(', ')}">
-          </div>
-          
-          <div class="vocab-stats">
-            <div class="stat-item">
-              <label>Mastery Level:</label>
-              <span>${(vocabularyItem.masteryLevel || 0).toFixed(1)}/10</span>
-            </div>
-            <div class="stat-item">
-              <label>Times Correct:</label>
-              <span>${vocabularyItem.timesCorrect || 0}</span>
-            </div>
-            <div class="stat-item">
-              <label>Times Incorrect:</label>
-              <span>${vocabularyItem.timesIncorrect || 0}</span>
-            </div>
-            <div class="stat-item">
-              <label>Last Reviewed:</label>
-              <span>${vocabularyItem.lastReviewed ? H.formatDate(new Date(vocabularyItem.lastReviewed)) : 'Never'}</span>
-            </div>
           </div>
           
           <div class="form-actions">

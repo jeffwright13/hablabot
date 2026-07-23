@@ -18,8 +18,6 @@ class Config {
       realtimeVoice: 'alloy',
       
       // Learning Preferences
-      correctionFrequency: 'immediate', // 'immediate', 'end-of-sentence', 'end-of-conversation'
-      newWordsPerSession: 5,
       sessionLength: 15, // minutes
       difficultyLevel: 'beginner', // 'beginner', 'intermediate', 'advanced'
       
@@ -150,11 +148,6 @@ class Config {
     // Validate session length
     if (this.settings.sessionLength < 5 || this.settings.sessionLength > 60) {
       this.settings.sessionLength = this.defaults.sessionLength;
-    }
-    
-    // Validate new words per session
-    if (this.settings.newWordsPerSession < 1 || this.settings.newWordsPerSession > 20) {
-      this.settings.newWordsPerSession = this.defaults.newWordsPerSession;
     }
     
     // Validate confidence threshold

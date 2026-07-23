@@ -11,8 +11,6 @@ class HablaBotDatabase {
         indexes: [
           { name: 'category', keyPath: 'category', unique: false },
           { name: 'difficulty', keyPath: 'difficulty', unique: false },
-          { name: 'nextReviewDate', keyPath: 'nextReviewDate', unique: false },
-          { name: 'masteryLevel', keyPath: 'masteryLevel', unique: false },
           { name: 'createdDate', keyPath: 'createdDate', unique: false }
         ]
       },
@@ -205,59 +203,11 @@ async init(customDbName = null) {
       difficulty: item.difficulty || 1,
       category: item.category || 'general',
       examples: item.examples || [],
-      masteryLevel: 0,
-      lastReviewed: null,
-      nextReviewDate: new Date(),
-      timesCorrect: 0,
-      timesIncorrect: 0,
       createdDate: new Date(),
       tags: item.tags || []
     };
-    
+
     return await this.add('vocabulary', vocabularyItem);
-  }
-
-  // Get vocabulary for review
-  async getVocabularyForReview(limit = 10) {
-    const now = new Date();
-    return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction(['vocabulary'], 'readonly');
-      const store = transaction.objectStore(storeName);
-      const index = store.index('nextReviewDate');
-      const request = index.openCursor(IDBKeyRange.upperBound(now));
-      
-      const results = [];
-      
-      request.onsuccess = (event) => {
-        const cursor = event.target.result;
-        if (cursor && results.length < limit) {
-          results.push(cursor.value);
-          cursor.continue();
-        } else {
-          resolve(results);
-        }
-      };
-      
-      request.onerror = () => reject(request.error);
-    });
-  }
-
-  // Update word performance
-  async updateWordPerformance(wordId, performance) {
-    const word = await this.get('vocabulary', wordId);
-    if (!word) throw new Error('Word not found');
-    
-    word.lastReviewed = new Date();
-    if (performance.correct) {
-      word.timesCorrect++;
-    } else {
-      word.timesIncorrect++;
-    }
-    
-    // Update mastery level and next review date based on spaced repetition
-    // This will be handled by the spaced repetition module
-    
-    return await this.put('vocabulary', word);
   }
 
   // Search vocabulary
@@ -285,12 +235,7 @@ async init(customDbName = null) {
       if (filters.difficulty && word.difficulty !== filters.difficulty) {
         return false;
       }
-      
-      // Mastery level filter
-      if (filters.masteryLevel !== undefined && word.masteryLevel !== filters.masteryLevel) {
-        return false;
-      }
-      
+
       return true;
     });
   }
@@ -333,28 +278,6 @@ async init(customDbName = null) {
   }
 
   // STATISTICS METHODS
-
-  // Get vocabulary statistics
-  async getVocabularyStats() {
-    const allWords = await this.getAll('vocabulary');
-    
-    const stats = {
-      totalWords: allWords.length,
-      masteredWords: allWords.filter(w => w.masteryLevel >= 5).length,
-      reviewingWords: allWords.filter(w => w.masteryLevel > 0 && w.masteryLevel < 5).length,
-      newWords: allWords.filter(w => w.masteryLevel === 0).length,
-      categories: {},
-      difficulties: {}
-    };
-    
-    // Count by category and difficulty
-    allWords.forEach(word => {
-      stats.categories[word.category] = (stats.categories[word.category] || 0) + 1;
-      stats.difficulties[word.difficulty] = (stats.difficulties[word.difficulty] || 0) + 1;
-    });
-    
-    return stats;
-  }
 
   // Get session statistics
   async getSessionStats() {

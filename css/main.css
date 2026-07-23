@@ -241,12 +241,6 @@ select:focus, input:focus {
 }
 
 /* Responsive Grid */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: var(--spacing-lg);
-}
-
 .vocabulary-filters {
   display: grid;
   grid-template-columns: 1fr auto auto;
@@ -256,7 +250,6 @@ select:focus, input:focus {
 
 /* Content Sections */
 .vocabulary-content,
-.progress-content,
 .settings-content {
   background: var(--white);
   border-radius: var(--border-radius-xl);

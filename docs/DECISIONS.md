@@ -699,3 +699,112 @@ paths when served from the subpath, and all resolve `200` after the fix, in both
 No test suite coverage added — this is a static-file path-resolution bug with no unit-testable
 behavior (Vitest/jsdom doesn't serve files over HTTP from a configurable base path), so verification
 was via the manual dual-topology `python3 -m http.server` check above rather than an automated test.
+
+## 2026-07-23 — Dropped SM-2 spaced repetition and all "mastery" tracking; Progress tab removed
+
+### How this started
+
+Prompted by a README audit: several claims in `README.md` looked suspect on inspection (still says
+"GPT-4", claims Firefox/Safari/Edge support despite a known unresolved Firefox disconnect bug and
+Safari/Edge never having been tested, describes a hold-to-talk button that no longer exists, claims
+API-key encryption that was never implemented, claims "Adaptive Difficulty" with no code behind it,
+describes Statistics/Charts/History that don't exist). Verifying those claims against the actual code
+surfaced two categories of problem: doc inaccuracies (the README rewrite covers these separately), and
+**real unimplemented/dead functionality masquerading as a feature** — most notably the entire Progress
+tab (`loadProgressData()` was a literal no-op, `createProgressChart()` drew a placeholder box captioned
+"Chart Placeholder"), and Settings buttons with zero JS wiring at all (Export All Data, Import Data,
+Clear All Data, Correction Frequency, New Words per Session — none of these were even saved to
+`Config`, let alone read by anything).
+
+That led to a broader conversation about whether the SM-2 spaced-repetition system (`js/vocabulary/
+spaced-repetition.js`), which the Progress tab was originally meant to visualize, belongs in this app
+at all.
+
+### The reasoning
+
+A HablaBot conversation session is 5-30 minutes. SM-2 scheduling operates on a days-to-weeks timescale
+(`INITIAL_INTERVALS = [1, 6]`, growing from there). Those timescales don't meet: nothing meaningful
+about a word's long-term mastery can be assessed or usefully acted on within a single session, so
+"adaptively" retuning difficulty mid-conversation was never a coherent feature to build — session-start
+knobs (the existing Difficulty Level dropdown, chosen once per session) are the right grain for this
+app, not a hypothetical mid-conversation adaptation engine. Note the code had already, independently,
+never grown that mid-session adaptation logic — the "Adaptive Difficulty" README bullet was aspirational
+copy with nothing behind it even before today.
+
+Separately: is word-level usage/mastery tracking worth keeping even just as a coarse per-session
+signal? Comparison against `~/coding/krashen` was informative — that repo built a real SRS-style
+vocabulary-tracking feature that works but is considered clumsy and of unclear value even in its home
+turf, where it fits far more naturally (Krashen generates written content the learner reads, so
+capturing "I don't know this word" is a simple click-to-highlight on text already on screen). HablaBot
+has no equivalent capture moment: conversation is spoken, and by the time a transcript exists,
+"highlighting a word mid-flow" would require an entirely new scrollback-and-select UI to reach even
+that same low bar. Building a heavier version (SM-2 scoring, review scheduling) of a feature whose
+lighter version (Krashen's) is *already* of questionable value, for a modality (speech) with a worse
+capture story than the one where it's already borderline, isn't justified.
+
+This also closed off a tangent about splitting vocab-tracking/SRS into a shared microservice reusable
+across HablaBot, Krashen, and future language-learning repos. Decided against pursuing that now: the
+underlying feature's value hasn't been validated in either of the two implementations that exist, so
+generalizing it into shared infrastructure would be generalizing something unproven — premature
+abstraction. If word-difficulty tiering is ever revisited, the better reference point raised in this
+conversation is Krashen's CEFR-level / frequency-band (top 500 / top 1000 / ...) approach rather than
+per-word mastery scores; aligning the two repos' difficulty models is a real future idea, not started
+here.
+
+The broader frame this conversation landed on: language acquisition happens across four skills
+(reading, writing, listening, speaking), and the useful thing to build isn't a deficiency-targeting
+"optimized" tool for any one of them, but simply good, generous exposure in each, in the proportions
+that matter most (input-heavy: listening and reading; output lighter: speaking, then writing) — closer
+to Krashen's Input Hypothesis / ALG and Dreaming Spanish's approach than to a gamified SRS product.
+Under that frame, HablaBot's job is specifically the *speaking* slice: a good, natural conversation
+partner. Vocabulary/mastery tooling was never that job — the scenario variety (#6), turn-detection
+pacing (#5), and transcript-accuracy fixes (#7/#8) done earlier this session are what actually serve
+it. Worth noting: the base system prompt's existing correction approach (recast naturally, never say
+"that's wrong" — see `getBaseSystemPrompt()`) already matches this philosophy's preference for
+implicit correction over explicit error-flagging; it just happened to already be right, not something
+this conversation changed.
+
+### What actually changed
+
+- Deleted `js/vocabulary/spaced-repetition.js` and `tests/spaced-repetition.test.js` outright — the
+  SM-2 engine. `getWordsForReview`/`getReviewStatistics`/`getReviewSchedule` had zero callers in the
+  live app before deletion (unit-tested only), confirming none of this was reachable from the UI.
+- `VocabularyManager.selectWordsForSession()` (still genuinely needed — this is what picks target
+  vocabulary for a session's system prompt) rewritten to filter candidates by the session's difficulty
+  tier and scenario, then pick randomly. No due/overdue concept, no mastery-based sort.
+- `VocabularyManager.updateWordPerformance()` deleted entirely, along with the `masteryLevel`/
+  `timesCorrect`/`timesIncorrect`/`nextReviewDate`/`easinessFactor`/`repetitions`/`interval` fields it
+  maintained. `SessionVocabBridge.trackUserTranscript()` (in `js/realtime/session-vocab-bridge.js`) no
+  longer calls into `VocabularyManager` at all — it purely tallies per-session word-usage counts in
+  memory for the end-of-session summary, which is all it was actually needed for.
+- `js/storage/database.js`: removed the same dead fields from `addVocabularyItem()`'s seed object and
+  the `vocabulary` store's index list, and deleted `getVocabularyForReview()` (dead, and had a
+  pre-existing bug — `transaction.objectStore(storeName)` referenced an undefined `storeName` variable,
+  never caught because nothing ever called it), `updateWordPerformance()` (dead, distinct from and
+  unrelated to the manager-level method of the same name), and `getVocabularyStats()` (dead once
+  Progress, its only caller, was removed).
+- Removed the Progress tab entirely: nav button, `<section id="progress-view">`, and its JS. Along the
+  way, found `js/app.js` had **duplicate method definitions** for both `loadVocabularyData` and
+  `loadProgressData` (JS silently lets the later declaration in a class body win) — the real,
+  data-populating `loadProgressData()` was dead code, permanently shadowed by a later no-op stub with
+  the same name that always won at runtime. Both copies are now gone along with the feature.
+- Removed the mastery badge and `nextReviewDate` display from the vocabulary card, the mastery/
+  times-correct/times-incorrect/last-reviewed block from the edit-vocabulary modal, and `getMasteryClass()`
+  in `js/ui/components.js`; removed now-orphaned CSS (`.stats-grid`, `.progress-content`) from
+  `css/main.css` and `css/mobile.css`.
+- Removed the Settings controls with zero JS wiring found during the original audit: Correction
+  Frequency, New Words per Session, Export All Data, Import Data, Clear All Data — along with the
+  matching dead `Config` defaults (`correctionFrequency`, `newWordsPerSession`).
+- The Vocabulary tab's actual working functionality — add/edit/delete, search, category/difficulty
+  filter, CSV import/export — is untouched and stays; none of it depended on mastery or SM-2.
+- Updated `tests/vocabulary-manager.test.js` (new coverage for the simplified `selectWordsForSession`)
+  and `tests/session-vocab-bridge.test.js` (dropped assertions on the now-removed
+  `updateWordPerformance` call). Verified with a live browser smoke test (all three remaining nav tabs,
+  Add Vocabulary modal) — zero console errors.
+
+### Left alone, flagged for a possible future pass
+
+`Config.defaults.sessionLength` and `difficultyLevel` are read from the DOM sliders/dropdowns directly
+in `app.js` at session start, not from `Config` — meaning these two stored defaults are vestigial in
+the same way `correctionFrequency`/`newWordsPerSession` were, just not raised in today's conversation.
+Not touched here to keep this change scoped to what was actually discussed.

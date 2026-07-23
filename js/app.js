@@ -13,8 +13,7 @@ class HablaBotApp {
     this.realtimeSession = null;
     this.conversationEngine = null;
     this.vocabularyManager = null;
-    this.spacedRepetition = null;
-    
+
     // DOM elements
     this.elements = {};
     
@@ -101,11 +100,11 @@ class HablaBotApp {
     
     // Initialize vocabulary manager
     this.vocabularyManager = window.HablaBotVocabulary;
-    await this.vocabularyManager.init(this.database, window.HablaBotSpacedRepetition);
+    await this.vocabularyManager.init(this.database);
 
     // Initialize the live-conversation vocabulary tracker
     this.vocabBridge = window.HablaBotSessionVocabBridge;
-    this.vocabBridge.init(this.vocabularyManager);
+    this.vocabBridge.init();
 
     // Initialize UI components
     window.HablaBotComponents.init(this.vocabularyManager, window.HablaBotUIState);
@@ -124,13 +123,11 @@ class HablaBotApp {
       navButtons: H.$$('.nav-btn'),
       conversationBtn: H.$('#conversation-btn'),
       vocabularyBtn: H.$('#vocabulary-btn'),
-      progressBtn: H.$('#progress-btn'),
       settingsBtn: H.$('#settings-btn'),
-      
+
       // Views
       conversationView: H.$('#conversation-view'),
       vocabularyView: H.$('#vocabulary-view'),
-      progressView: H.$('#progress-view'),
       settingsView: H.$('#settings-view'),
       
       // Conversation elements
@@ -342,9 +339,6 @@ class HablaBotApp {
       switch (viewName) {
         case 'vocabulary':
           await this.loadVocabularyData();
-          break;
-        case 'progress':
-          await this.loadProgressData();
           break;
         case 'settings':
           await this.loadSettingsData();
@@ -860,29 +854,6 @@ class HablaBotApp {
     }
   }
 
-  // Load vocabulary data
-  async loadVocabularyData() {
-    // Implementation will be added when vocabulary manager is created
-    console.log('Loading vocabulary data...');
-  }
-
-  // Load progress data
-  async loadProgressData() {
-    try {
-      const vocabStats = await this.database.getVocabularyStats();
-      const sessionStats = await this.database.getSessionStats();
-      
-      // Update statistics display
-      H.$('#total-words-stat').textContent = vocabStats.totalWords;
-      H.$('#mastered-words-stat').textContent = vocabStats.masteredWords;
-      H.$('#conversation-time-stat').textContent = `${Math.round(sessionStats.totalTimeMinutes / 60)}h`;
-      H.$('#streak-stat').textContent = '0'; // Will be calculated later
-      
-    } catch (error) {
-      console.error('Failed to load progress data:', error);
-    }
-  }
-
   // Check if this is a first-time user
   async checkFirstTimeUser() {
     const hasApiKey = this.config.hasApiKey();
@@ -965,12 +936,6 @@ class HablaBotApp {
       console.error('Failed to load vocabulary data:', error);
       H.showToast('Failed to load vocabulary', 'error');
     }
-  }
-
-  // Load progress data for progress view
-  async loadProgressData() {
-    // This would load user progress charts and statistics
-    console.log('Loading progress data...');
   }
 
   // Load settings data for settings view

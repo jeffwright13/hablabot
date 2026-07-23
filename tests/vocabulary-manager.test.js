@@ -22,14 +22,14 @@ function makeMockDatabase(initialItems = []) {
 }
 
 const SEED = [
-  { id: '1', spanish: 'menú', english: 'menu', category: 'food', difficulty: 1, tags: [], masteryLevel: 0 },
-  { id: '2', spanish: 'hotel', english: 'hotel', category: 'travel', difficulty: 2, tags: [], masteryLevel: 3 },
-  { id: '3', spanish: 'familia', english: 'family', category: 'family', difficulty: 1, tags: ['home'], masteryLevel: 0 },
+  { id: '1', spanish: 'menú', english: 'menu', category: 'food', difficulty: 1, tags: [] },
+  { id: '2', spanish: 'hotel', english: 'hotel', category: 'travel', difficulty: 2, tags: [] },
+  { id: '3', spanish: 'familia', english: 'family', category: 'family', difficulty: 1, tags: ['home'] },
 ];
 
 async function makeManager(seed = SEED) {
   const manager = new VocabularyManager();
-  await manager.init(makeMockDatabase(seed), null);
+  await manager.init(makeMockDatabase(seed));
   return manager;
 }
 
@@ -110,6 +110,43 @@ describe('VocabularyManager.importFromCSV', () => {
     expect(result.imported).toBe(0);
     expect(result.errors).toBe(1);
     expect(result.errorDetails[0]).toMatch(/already exists/);
+  });
+});
+
+describe('VocabularyManager.selectWordsForSession', () => {
+  let manager;
+
+  beforeEach(async () => {
+    manager = await makeManager();
+  });
+
+  it('filters candidates to the requested difficulty tier', () => {
+    // intermediate maps to difficulties [3, 4]; the seed set only has
+    // difficulty 1 (menú, familia) and 2 (hotel) words, so none qualify.
+    const selected = manager.selectWordsForSession({ difficulty: 'intermediate', maxWords: 10 });
+    expect(selected).toEqual([]);
+  });
+
+  it('returns beginner-difficulty words for the beginner tier', () => {
+    // beginner maps to difficulties [1, 2], which covers the whole seed set.
+    const selected = manager.selectWordsForSession({ difficulty: 'beginner', maxWords: 10 });
+    expect(selected.map(w => w.id).sort()).toEqual(['1', '2', '3']);
+  });
+
+  it('filters by scenario, matching either category or tags', () => {
+    const selected = manager.selectWordsForSession({ difficulty: 'mixed', scenario: 'travel', maxWords: 10 });
+    expect(selected.map(w => w.id)).toEqual(['2']);
+  });
+
+  it('caps the result at maxWords', () => {
+    const selected = manager.selectWordsForSession({ difficulty: 'mixed', maxWords: 1 });
+    expect(selected).toHaveLength(1);
+  });
+
+  it('defaults to mixed difficulty and no scenario filter, returning up to 5 words', () => {
+    const selected = manager.selectWordsForSession();
+    expect(selected.length).toBeLessThanOrEqual(5);
+    expect(selected.length).toBe(3); // fewer than 5 words exist in the seed set
   });
 });
 
