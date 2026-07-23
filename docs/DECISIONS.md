@@ -576,3 +576,38 @@ the fix that actually addresses the reported symptom.
 
 Tests: 1 new case (56 total) confirming an assistant-role `conversation.item.done` with a populated
 transcript is ignored entirely, and doesn't spuriously warn either.
+
+## 2026-07-22 — Issue #6: expanded conversation scenarios from 7 to 16
+
+Widened scenario breadth to match/exceed competitors (Praktika, Natulang) per Issue #6. Started by
+proposing a 13-item shortlist independently, then found `Requirements and Implemetation.md` (a
+pre-existing planning doc at the repo root, predating this session's work and not previously read)
+already had a "Conversation Scenarios" section — it listed the same 7 scenarios already implemented
+(Restaurant, Travel, Shopping, Family, Work, Health, Emergency), each with a few sub-situations noted
+as bullets (e.g. Travel: "asking directions, booking hotels, transportation").
+
+That overlap mattered: 4 items from the proposed shortlist (Hotel check-in, Directions &
+transportation, Job interview, Pharmacy) turned out to already be implicit sub-topics of an existing
+scenario (Travel, Travel, Work, Health respectively) rather than genuine gaps. Dropped those 4 rather
+than adding them as redundant top-level entries — if their coverage within the existing scenario
+prompts ever feels thin, that's a content-depth issue for the existing scenario, not a case for a
+new dropdown entry.
+
+The remaining 9 were added as new top-level scenarios (`js/ai/prompts.js`, `index.html`'s
+`#scenario-select`), since each represents a register or setting genuinely distinct from anything in
+the original 7: Café (informal, faster-paced than a full Restaurant), Meeting Someone New / Small
+Talk (purely social, no transactional goal — a gap across the entire original set), Bank/Post Office,
+Phone/Tech Support (voice-only register, no visual cues to lean on), Apartment Hunting (longer-term
+housing, distinct from Travel's hotel booking), Hairdresser/Salon, Gym, School, Celebrations &
+Holidays.
+
+Each new scenario follows the exact structure of the existing 7 (ESCENARIO / role setup /
+VOCABULARIO CLAVE / OBJETIVOS / FRASES ÚTILES / INICIO in `getScenarioPrompts()`, plus a 3-starter ×
+3-difficulty block in `getConversationStarters()`), so `generateSystemPrompt()` and
+`getConversationStarters()` needed no code changes — only new data. Total: 16 scenarios.
+
+Also added `tests/prompts.test.js` (4 tests), since `js/ai/prompts.js` had zero prior coverage. Tests
+assert all 16 scenarios are defined and non-empty, `generateSystemPrompt()` correctly splices each
+scenario's content in, `getConversationStarters()` returns a valid starter for every
+scenario × difficulty pair, and the documented fallback behavior (unrecognized scenario/difficulty →
+restaurant/beginner) still holds.
