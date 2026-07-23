@@ -653,3 +653,49 @@ default to 1.0/1.0. No `app.js`-level test added — `app.js` has no existing te
 DOM/IndexedDB dependencies with no mocking infrastructure yet), and building one is a separate effort
 from this fix; the `session.js` tests cover the actual defect (options not reaching the API/audio
 element) directly.
+
+## 2026-07-22 — Issue #13: GitHub Pages deployment fully broken (unstyled, stuck on loading screen)
+
+Reported: https://jeffwright13.github.io/hablabot/ loads but renders with no CSS (default browser
+serif) and stays stuck on "Loading your Spanish tutor..." — none of the app's JS ever runs.
+
+Root cause: every asset reference across `index.html` (`<link>`/`<script>` `href`/`src`), `sw.js`
+(`STATIC_CACHE_URLS`, the `caches.match('/index.html')` offline fallback, `clients.openWindow('/')`,
+and the service worker registration call itself), and `manifest.json` (`start_url`, `scope`) used a
+root-absolute path (leading `/`). That resolves correctly when the app is served from a domain root —
+which is true for both local dev servers (`npm run serve`, `python3 -m http.server`) — but GitHub
+Pages *project* sites (as opposed to a `<username>.github.io` *user* site) serve from a subpath:
+confirmed via `gh api repos/jeffwright13/hablabot/pages` that this repo's Pages config is
+`branch: main, path: /`, published at `https://jeffwright13.github.io/hablabot/`. A root-absolute
+`/css/main.css` resolves to `https://jeffwright13.github.io/css/main.css` — outside the `/hablabot/`
+subpath entirely, which 404s. Every stylesheet and every `<script src>` 404'd the same way, so no CSS
+ever applied and no JS ever ran, leaving only the static HTML fallback text visible. This was never
+caught by local testing because local dev happens to always serve from the domain root, so the bug is
+invisible until deployed to a subpath.
+
+Fixed by converting every reference to a relative path: `index.html`'s `href="/css/main.css"` →
+`href="css/main.css"` (and the same pattern for all `<script src>`, the manifest link, and icon
+links); `sw.js`'s registration call `register('/sw.js')` → `register('sw.js')`, `STATIC_CACHE_URLS`
+entries `'/css/main.css'` → `'./css/main.css'`, `caches.match('/index.html')` →
+`caches.match('./index.html')`, `clients.openWindow('/')` → `clients.openWindow('./')`;
+`manifest.json`'s `start_url`/`scope` `"/"` → `"."`/`"./"` (per the Web App Manifest spec, these
+resolve relative to the manifest's own URL, not the page's, and `"."` is the portable choice — it
+survives a repo rename or a future move to a custom domain without further edits, unlike hardcoding
+`"/hablabot/"`). Relative paths resolve correctly in both topologies: from a domain root they resolve
+identically to the old absolute paths (no behavior change for local dev), and from a subpath they
+resolve within that subpath instead of escaping it. `manifest.json`'s icon `src` entries and `sw.js`'s
+push-notification icon paths were already relative and needed no change.
+
+Bumped `CACHE_NAME` to `hablabot-v3`, following the same reasoning as the v1→v2 bump: the resolved
+absolute URL for every `STATIC_CACHE_URLS` entry changes for any subpath deployment, so a stale v2
+cache (on the rare chance one had partially formed despite the 404s) needed to be invalidated rather
+than mixed with the new relative-path entries.
+
+Verified by serving the repo two ways locally: from its own directory (mimicking `npm run serve`,
+confirming no regression) and from its *parent* directory so it's reachable at `/hablabot/`
+(mimicking the actual GitHub Pages topology) — confirmed every asset 404'd under the old absolute
+paths when served from the subpath, and all resolve `200` after the fix, in both topologies.
+
+No test suite coverage added — this is a static-file path-resolution bug with no unit-testable
+behavior (Vitest/jsdom doesn't serve files over HTTP from a configurable base path), so verification
+was via the manual dual-topology `python3 -m http.server` check above rather than an automated test.

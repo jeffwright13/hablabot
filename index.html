@@ -12,21 +12,21 @@
     <title>HablaBot - Spanish Conversation Tutor</title>
     
     <!-- PWA Manifest -->
-    <link rel="manifest" href="/manifest.json">
+    <link rel="manifest" href="manifest.json">
     
     <!-- Favicon and Icons -->
-    <link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/icon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="/assets/icons/icon-16x16.png">
-    <link rel="apple-touch-icon" href="/assets/icons/icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/icons/icon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/icons/icon-16x16.png">
+    <link rel="apple-touch-icon" href="assets/icons/icon-192x192.png">
     
     <!-- Stylesheets -->
-    <link rel="stylesheet" href="/css/main.css">
-    <link rel="stylesheet" href="/css/mobile.css">
-    <link rel="stylesheet" href="/css/animations.css">
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/mobile.css">
+    <link rel="stylesheet" href="css/animations.css">
     
     <!-- Preload critical resources -->
-    <link rel="preload" href="/js/app.js" as="script">
-    <link rel="preload" href="/js/utils/config.js" as="script">
+    <link rel="preload" href="js/app.js" as="script">
+    <link rel="preload" href="js/utils/config.js" as="script">
 </head>
 <body>
     <!-- Loading Screen -->
@@ -362,28 +362,28 @@
     </div>
 
     <!-- JavaScript Modules -->
-    <script src="/js/utils/config.js"></script>
-    <script src="/js/utils/helpers.js"></script>
-    <script src="/js/utils/user-manager.js"></script>
-    <script src="/js/storage/database.js"></script>
-    <script src="/js/ui/state.js"></script>
-    <script src="/js/ui/components.js"></script>
+    <script src="js/utils/config.js"></script>
+    <script src="js/utils/helpers.js"></script>
+    <script src="js/utils/user-manager.js"></script>
+    <script src="js/storage/database.js"></script>
+    <script src="js/ui/state.js"></script>
+    <script src="js/ui/components.js"></script>
     <!-- speech/recognition.js and speech/synthesis.js replaced by realtime/session.js -->
-    <script src="/js/realtime/session.js"></script>
-    <script src="/js/realtime/session-vocab-bridge.js"></script>
-    <script src="/js/realtime/turn-profiles.js"></script>
-    <script src="/js/ai/prompts.js"></script>
-    <script src="/js/ai/conversation.js"></script>
-    <script src="/js/vocabulary/spaced-repetition.js"></script>
-    <script src="/js/vocabulary/manager.js"></script>
-    <script src="/js/utils/audio.js"></script>
-    <script src="/js/app.js"></script>
+    <script src="js/realtime/session.js"></script>
+    <script src="js/realtime/session-vocab-bridge.js"></script>
+    <script src="js/realtime/turn-profiles.js"></script>
+    <script src="js/ai/prompts.js"></script>
+    <script src="js/ai/conversation.js"></script>
+    <script src="js/vocabulary/spaced-repetition.js"></script>
+    <script src="js/vocabulary/manager.js"></script>
+    <script src="js/utils/audio.js"></script>
+    <script src="js/app.js"></script>
 
     <!-- Service Worker Registration -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
+                navigator.serviceWorker.register('sw.js')
                     .then((registration) => {
                         console.log('SW registered: ', registration);
                     })

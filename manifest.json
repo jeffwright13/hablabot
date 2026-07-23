@@ -2,12 +2,12 @@
   "name": "HablaBot - Spanish Conversation Tutor",
   "short_name": "HablaBot",
   "description": "AI-powered Spanish conversation practice with voice interaction",
-  "start_url": "/",
+  "start_url": ".",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#e74c3c",
   "orientation": "portrait-primary",
-  "scope": "/",
+  "scope": "./",
   "lang": "en",
   "icons": [
     {

@@ -7,28 +7,34 @@
 // a stale cached session.js through an entire investigation into why
 // transcription never worked, while the actual bug had already been fixed
 // on disk multiple times over. See docs/DECISIONS.md for the full story.
-const CACHE_NAME = 'hablabot-v2';
+//
+// v2 -> v3: STATIC_CACHE_URLS switched from root-absolute ('/css/main.css')
+// to relative ('./css/main.css') entries -- see docs/DECISIONS.md for the
+// GitHub Pages subpath bug this fixes. The resolved absolute URL for every
+// entry changes on any deployment served from a subpath, so the cache name
+// bumps to guarantee a clean precache rather than mixing old and new keys.
+const CACHE_NAME = 'hablabot-v3';
 const STATIC_CACHE_URLS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/css/main.css',
-  '/css/mobile.css',
-  '/css/animations.css',
-  '/js/app.js',
-  '/js/ai/prompts.js',
-  '/js/realtime/session.js',
-  '/js/realtime/session-vocab-bridge.js',
-  '/js/realtime/turn-profiles.js',
-  '/js/vocabulary/manager.js',
-  '/js/vocabulary/spaced-repetition.js',
-  '/js/storage/database.js',
-  '/js/ui/components.js',
-  '/js/ui/state.js',
-  '/js/utils/audio.js',
-  '/js/utils/config.js',
-  '/js/utils/helpers.js',
-  '/js/utils/user-manager.js'
+  './',
+  './index.html',
+  './manifest.json',
+  './css/main.css',
+  './css/mobile.css',
+  './css/animations.css',
+  './js/app.js',
+  './js/ai/prompts.js',
+  './js/realtime/session.js',
+  './js/realtime/session-vocab-bridge.js',
+  './js/realtime/turn-profiles.js',
+  './js/vocabulary/manager.js',
+  './js/vocabulary/spaced-repetition.js',
+  './js/storage/database.js',
+  './js/ui/components.js',
+  './js/ui/state.js',
+  './js/utils/audio.js',
+  './js/utils/config.js',
+  './js/utils/helpers.js',
+  './js/utils/user-manager.js'
 ];
 
 // Install event - cache static assets
@@ -143,7 +149,7 @@ self.addEventListener('fetch', (event) => {
             // Network failed and nothing cached -- try to serve the offline
             // shell for navigation requests.
             if (event.request.mode === 'navigate') {
-              return caches.match('/index.html');
+              return caches.match('./index.html');
             }
           });
       })
@@ -185,7 +191,7 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
   event.waitUntil(
-    clients.openWindow('/')
+    clients.openWindow('./')
   );
 });
 
