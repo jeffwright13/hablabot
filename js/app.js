@@ -402,6 +402,8 @@ class HablaBotApp {
         await this.realtimeSession.connect(this.config.get('openaiApiKey'), {
           instructions: systemPrompt,
           voice: this.config.get('realtimeVoice') || 'alloy',
+          speed: this.config.get('speechRate'),
+          volume: this.config.get('speechVolume'),
           autoGreet: true,
           turnDetection: window.HablaBotTurnProfiles.getTurnDetectionConfig(difficulty)
         });

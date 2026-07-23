@@ -151,6 +151,34 @@ describe('RealtimeSession.connect', () => {
     expect(update.session.audio.input.transcription.language).toBe('es');
   });
 
+  it('passes speech-rate/volume Settings through to the API and the <audio> element', async () => {
+    const pc = await connectAndOpen(session, 'sk-test', { speed: 1.3, volume: 0.4 });
+    const update = pc.dataChannel.sent.find(m => m.type === 'session.update');
+
+    expect(update.session.audio.output.speed).toBe(1.3);
+    expect(session.audioEl.volume).toBe(0.4);
+  });
+
+  it('clamps speed/volume to the ranges the Realtime API and <audio> element actually accept', async () => {
+    // HablaBot's Settings slider historically allowed up to 2.0 (matching the
+    // old speechSynthesis engine); the Realtime API's audio.output.speed
+    // tops out at 1.5, so an old stored value above that must not be sent
+    // as-is.
+    const pc = await connectAndOpen(session, 'sk-test', { speed: 2.0, volume: 1.5 });
+    const update = pc.dataChannel.sent.find(m => m.type === 'session.update');
+
+    expect(update.session.audio.output.speed).toBe(1.5);
+    expect(session.audioEl.volume).toBe(1);
+  });
+
+  it('defaults speed to 1.0 and volume to 1.0 when not provided', async () => {
+    const pc = await connectAndOpen(session, 'sk-test', {});
+    const update = pc.dataChannel.sent.find(m => m.type === 'session.update');
+
+    expect(update.session.audio.output.speed).toBe(1.0);
+    expect(session.audioEl.volume).toBe(1);
+  });
+
   it('falls back to the original fixed turn_detection when no override is passed', async () => {
     const pc = await connectAndOpen(session, 'sk-test', {});
     const update = pc.dataChannel.sent.find(m => m.type === 'session.update');

@@ -135,8 +135,10 @@ class Config {
 
   // Validate settings
   validateSettings() {
-    // Validate speech rate
-    if (this.settings.speechRate < 0.5 || this.settings.speechRate > 2.0) {
+    // Validate speech rate -- bounds match the Realtime API's audio.output.speed
+    // range (0.25-1.5), the only consumer of this setting now that the old
+    // speechSynthesis engine is dead code.
+    if (this.settings.speechRate < 0.25 || this.settings.speechRate > 1.5) {
       this.settings.speechRate = this.defaults.speechRate;
     }
     

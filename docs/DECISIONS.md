@@ -611,3 +611,45 @@ assert all 16 scenarios are defined and non-empty, `generateSystemPrompt()` corr
 scenario's content in, `getConversationStarters()` returns a valid starter for every
 scenario × difficulty pair, and the documented fallback behavior (unrecognized scenario/difficulty →
 restaurant/beginner) still holds.
+
+## 2026-07-22 — Settings (Speech Rate, Volume) silently ignored by the live conversation
+
+Reported bug: changing Settings like Speech Rate had no effect on an active conversation. Root cause
+was leftover wiring from the pre-Realtime-API architecture: `speechRate`/`speechVolume` (and
+`speechPitch`/`voiceIndex`, though those have no UI control at all) were designed for the old
+`speechSynthesis`-based engine and only ever got read back into `getSpeechSettings()` — a method
+nothing in the live Realtime-API path calls. `app.js`'s Settings handlers correctly saved the values
+to `Config` and updated the slider labels, but `startConversation()` never passed them to
+`realtimeSession.connect()`, so the Realtime API session always used its own defaults. This is the
+same category of bug as the earlier voice-select dropdown fix (`realtimeVoice`) — a Settings control
+whose wiring was never carried forward through the Realtime API migration — just for a different pair
+of fields.
+
+Fixed both, since both have real, distinct levers available in the new architecture:
+
+- **Speed**: the Realtime API's `session.update` supports `audio.output.speed` (confirmed via
+  current API docs — 0.25-1.5×, default 1.0, applied as post-processing on generated audio, settable
+  between turns). Wired `config.speechRate` through `connect(apiKey, { speed, ... })` into both the
+  initial `client_secrets` request and the `session.update` payload, alongside the existing `voice`
+  field. Added `_clampSpeed()` in `session.js` since the API's range (0.25-1.5) is narrower than
+  HablaBot's Settings slider historically allowed (0.5-2.0, inherited from the old engine) — rather
+  than reject or silently drop out-of-range values, clamp them. Tightened the slider's own `max` from
+  `2` to `1.5` in `index.html` and `Config.validateSettings()`'s bounds to match, so the UI no longer
+  implies a range the backend can't honor.
+- **Volume**: the Realtime API has no concept of output volume (it's not a generation parameter) —
+  this is a plain client-side playback control, so it's applied directly as `audioEl.volume` when the
+  `<audio>` element is created in `connect()`, via a matching `_clampVolume()` (0-1).
+- **Pitch/voiceIndex**: left alone. Neither has a UI control in `index.html` at all (checked — only
+  Speech Rate and Volume sliders exist under "Voice Settings"), so there's no reported symptom to fix;
+  they're vestigial `Config` keys from the old engine with nothing rendering or reading them beyond
+  `getSpeechSettings()` itself. Not deleted, since `Config` doesn't distinguish "unused key" from
+  "used by a caller I haven't found" without a full audit — but worth removing in a future cleanup
+  pass if `getSpeechSettings()` and `js/speech/*.js` are ever formally deleted rather than left as
+  dead code.
+
+Tests: 3 new cases in `tests/realtime-session.test.js` (63 total) — speed/volume values reach
+`session.update` and `audioEl.volume` correctly, out-of-range values get clamped, and unset values
+default to 1.0/1.0. No `app.js`-level test added — `app.js` has no existing test harness (heavy
+DOM/IndexedDB dependencies with no mocking infrastructure yet), and building one is a separate effort
+from this fix; the `session.js` tests cover the actual defect (options not reaching the API/audio
+element) directly.

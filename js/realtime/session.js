@@ -126,7 +126,7 @@ class RealtimeSession {
             type: 'realtime',
             model: options.model || 'gpt-realtime-2.1',
             audio: {
-              output: { voice: options.voice || 'alloy' }
+              output: { voice: options.voice || 'alloy', speed: this._clampSpeed(options.speed) }
             }
           }
         })
@@ -204,9 +204,14 @@ class RealtimeSession {
         }
       };
 
-      // Step 4: Route incoming AI audio to an <audio> element.
+      // Step 4: Route incoming AI audio to an <audio> element. Volume is a
+      // plain playback-level control, not something the Realtime API has any
+      // concept of (unlike speed, which is server-side post-processing on
+      // the generated audio) — so it's applied client-side here rather than
+      // sent in session.update.
       this.audioEl = document.createElement('audio');
       this.audioEl.autoplay = true;
+      this.audioEl.volume = this._clampVolume(options.volume);
       this.pc.ontrack = (e) => {
         if (e.streams && e.streams[0]) {
           this.audioEl.srcObject = e.streams[0];
@@ -257,7 +262,8 @@ class RealtimeSession {
                 }
               },
               output: {
-                voice: options.voice || 'alloy'
+                voice: options.voice || 'alloy',
+                speed: this._clampSpeed(options.speed)
               }
             }
           }
@@ -447,6 +453,20 @@ class RealtimeSession {
     if (this.dc && this.dc.readyState === 'open') {
       this.dc.send(JSON.stringify(obj));
     }
+  }
+
+  // The Realtime API's audio.output.speed accepts 0.25-1.5 (1.0 = normal);
+  // HablaBot's own Settings slider allows 0.5-2.0 to match the old
+  // speechSynthesis engine's wider range, so an out-of-range value here is
+  // expected, not a caller bug -- clamp rather than reject.
+  _clampSpeed(speed) {
+    if (typeof speed !== 'number' || Number.isNaN(speed)) return 1.0;
+    return Math.min(1.5, Math.max(0.25, speed));
+  }
+
+  _clampVolume(volume) {
+    if (typeof volume !== 'number' || Number.isNaN(volume)) return 1.0;
+    return Math.min(1, Math.max(0, volume));
   }
 
   _setStatus(status, meta = {}) {
