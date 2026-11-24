@@ -40,6 +40,7 @@ jobs:
       - name: Audit runtime dependencies
         run: npm audit --omit=dev
 
+      # Non-blocking, but not silent: a failing audit adds a warning
+      # annotation to the checks summary instead of only appearing in the log.
       - name: Report dev dependency advisories
-        continue-on-error: true
-        run: npm audit
+        run: npm audit || echo "::warning title=npm audit::Dev-dependency advisories found (non-blocking; see this step's log and docs/TODO.md)"

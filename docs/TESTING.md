@@ -73,19 +73,21 @@ branches and 90% everything else.
 | Scope | Statements | Branches | Functions | Lines | Set |
 |---|---|---|---|---|---|
 | All shipped `js/**` (excluding the unloaded `js/speech/`) | 30 | 78 | 35 | 30 | 2026-11-24 baseline: 30 / 78.37 / 35.82 / 30 |
-| `js/realtime/**` | 93 | 85 | 77 | 93 | 2026-11-24 baseline: 94.53 / 87.06 / 83.33 / 94.53 |
+| `js/realtime/**` | 94 | 87 | 83 | 94 | 2026-11-24 baseline: 94.53 / 87.06 / 83.33 / 94.53 |
 
 The global numbers are low because `app.js`, `database.js`, `user-manager.js`, `js/ui/*` and the
 dead `conversation.js`/`audio.js` have no tests. Branch coverage looks high only because untested
 files contribute few counted branches. The separate `js/realtime/**` floor exists because, in a
 global average dominated by untested files, a real regression in the core conversation path would
-barely move the totals.
+barely move the totals. Vitest checks a glob floor against the **combined** figure for every
+matching file (the `js/realtime` folder row in the report), not against any single file's row.
 
 ### Dependency audit
 
 The app ships **no npm packages**: `package.json` holds only test tooling. CI therefore runs
 `npm audit --omit=dev` as a blocking step (today: 0 vulnerabilities) and the full `npm audit` as a
-reported, non-blocking step, the same policy as dreaming-tools. Every current advisory is in
+reported step that doesn't block but adds a warning annotation to the PR's checks summary, so
+advisories stay visible. This is the same policy as dreaming-tools. Every current advisory is in
 Vitest 2 and its tooling, and fixing them needs a major Vitest upgrade (tracked in `TODO.md`).
 
 ### 2. Live voice checks (manual)

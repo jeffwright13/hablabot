@@ -27,12 +27,16 @@ export default defineConfig({
         lines: 30,
         // The core conversation path is already well covered. A per-glob
         // floor stops a regression there from hiding behind the large,
-        // untested files that dominate the global numbers.
+        // untested files that dominate the global numbers. Vitest checks this
+        // against the COMBINED figure for every file under js/realtime/
+        // (94.53 / 87.06 / 83.33 / 94.53 on 2026-11-24), not any one file's
+        // row in the report, so that combined figure is what gets rounded
+        // down here.
         'js/realtime/**': {
-          statements: 93,
-          branches: 85,
-          functions: 77,
-          lines: 93,
+          statements: 94,
+          branches: 87,
+          functions: 83,
+          lines: 94,
         },
       },
     },
