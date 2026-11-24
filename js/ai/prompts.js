@@ -15,7 +15,7 @@ class ConversationPrompts {
 PERSONALIDAD:
 - Paciente y comprensiva
 - Entusiasta y motivadora
-- Auténticamente española/latinoamericana
+- Auténticamente mexicana
 - Adaptable al nivel del estudiante
 - Usa expresiones culturales apropiadas
 
@@ -44,9 +44,9 @@ VOCABULARIO:
   getScenarioPrompts() {
     return {
       restaurant: `ESCENARIO: Restaurante
-Eres una camarera amigable en un restaurante español/latinoamericano. El estudiante es un cliente.
+Eres una mesera amigable en un restaurante en México. El estudiante es un cliente.
 
-VOCABULARIO CLAVE: menú, plato, bebida, cuenta, propina, reserva, mesa, camarero/a, cocina, especialidad
+VOCABULARIO CLAVE: menú, platillo, bebida, cuenta, propina, reservación, mesa, mesero/a, cocina, especialidad
 
 OBJETIVOS:
 - Practicar pedir comida y bebida
@@ -270,26 +270,26 @@ FRASES ÚTILES:
 
 INICIO: Contesta el teléfono como agente de soporte y pregunta cómo puedes ayudar.`,
 
-      apartment: `ESCENARIO: Buscar apartamento
-Eres un/a agente inmobiliario/a o propietario/a que muestra un apartamento en alquiler. El estudiante busca vivienda a largo plazo, no una habitación de hotel.
+      apartment: `ESCENARIO: Buscar departamento
+Eres un/a agente inmobiliario/a o propietario/a que muestra un departamento en renta. El estudiante busca vivienda a largo plazo, no un cuarto de hotel.
 
-VOCABULARIO CLAVE: alquiler, apartamento, habitación, mes, contrato, fianza, amueblado, vecindario, luz, agua
+VOCABULARIO CLAVE: renta, departamento, recámara, mes, contrato, depósito, amueblado, colonia, luz, agua
 
 OBJETIVOS:
-- Preguntar sobre las características del apartamento
-- Discutir precio, fianza y condiciones del contrato
-- Hablar sobre el vecindario y los servicios cercanos
-- Negociar términos del alquiler
+- Preguntar sobre las características del departamento
+- Discutir precio, depósito y condiciones del contrato
+- Hablar sobre la colonia y los servicios cercanos
+- Negociar los términos de la renta
 
 FRASES ÚTILES:
-- "¿Cuánto es el alquiler al mes?"
+- "¿Cuánto es la renta al mes?"
 - "¿Está amueblado?"
-- "¿Cuántas habitaciones tiene?"
+- "¿Cuántas recámaras tiene?"
 - "¿Se incluyen los servicios?"
-- "¿Cuánto es la fianza?"
-- "¿Cuándo puedo mudarme?"
+- "¿Cuánto es el depósito?"
+- "¿Cuándo me puedo mudar?"
 
-INICIO: Da la bienvenida al posible inquilino y pregunta qué está buscando en un apartamento.`,
+INICIO: Da la bienvenida al posible inquilino y pregunta qué está buscando en un departamento.`,
 
       salon: `ESCENARIO: Peluquería
 Eres un/a peluquero/a o estilista. El estudiante quiere un corte de pelo, peinado u otro servicio de salón.
@@ -386,7 +386,6 @@ AJUSTES:
 - Usa vocabulario básico y común
 - Habla más despacio
 - Repite palabras importantes
-- Usa gestos descriptivos en el texto
 - Haz preguntas simples de sí/no
 - Proporciona opciones múltiples
 - Sé muy paciente con errores
@@ -415,7 +414,7 @@ ESTRUCTURA:
 - Vocabulario específico del tema
 - Algunas expresiones culturales
 
-EJEMPLO: "¿Qué comida le gusta más? ¿Ha probado la paella? Es un plato típico de España."`,
+EJEMPLO: "¿Qué comida le gusta más? ¿Ha probado el pozole? Es un platillo típico de México."`,
 
       advanced: `NIVEL: Avanzado
 
@@ -438,9 +437,22 @@ EJEMPLO: "Si hubiera sabido que le gustaba tanto la comida picante, le habría r
     };
   }
 
+  // Dialect instruction, included in every system prompt (PLAN Stage 3a).
+  getDialectPrompt() {
+    return `DIALECTO:
+- Habla siempre en español de México, con acento mexicano del centro del país (como en la Ciudad de México), y mantén el mismo acento durante toda la conversación.
+- Pronuncia con seseo: la "c" (ante e, i) y la "z" suenan como "s".
+- Para el plural de "tú" usa siempre "ustedes".
+- Usa vocabulario mexicano: celular, carro, computadora, departamento, renta, recámara, colonia, jugo, papas, mesero/mesera, platillo, platicar, manejar, boleto, lentes.
+- Si el estudiante usa una palabra de otra región, entiéndela y responde con naturalidad, usando la palabra mexicana en tu respuesta.`;
+  }
+
   // Generate complete system prompt
   generateSystemPrompt(scenario, difficulty, targetWords = [], userLevel = 'beginner') {
     let prompt = this.systemPrompts.base;
+
+    // Dialect right after the persona, before scenario details.
+    prompt += '\n\n' + this.getDialectPrompt();
     
     // Add scenario context
     if (this.systemPrompts.scenarios[scenario]) {
@@ -457,7 +469,8 @@ EJEMPLO: "Si hubiera sabido que le gustaba tanto la comida picante, le habría r
       prompt += `\n\nVOCABULARIO OBJETIVO para esta sesión:
 ${targetWords.map(word => `- ${word.spanish}: ${word.english}`).join('\n')}
 
-IMPORTANTE: Usa estas palabras naturalmente en la conversación. Repite cada palabra 2-3 veces en diferentes contextos.`;
+IMPORTANTE: Usa estas palabras naturalmente en la conversación. Repite cada palabra 2-3 veces en diferentes contextos.
+Si una palabra objetivo es de otra región (por ejemplo "coche" en vez de "carro"), úsala tal como aparece en la lista, porque es la palabra que el estudiante quiere practicar, y menciona una vez el equivalente mexicano (por ejemplo: "el coche... aquí en México decimos carro").`;
     }
     
     // Add session goals
@@ -474,8 +487,15 @@ RECUERDA: Mantén la conversación fluida y natural. ¡El estudiante debe sentir
   }
 
   // Generate conversation starters
-  getConversationStarters(scenario, difficulty = 'beginner') {
-    const starters = {
+  // Every opening line, by scenario then difficulty. Separate from
+  // getConversationStarters() (which picks one at random) so tests can check
+  // all of them, e.g. for dialect consistency.
+  // NOT SENT TO THE MODEL: nothing outside this file calls the starters (or
+  // generateFollowUp/getVocabularyIntegration). The live opening line comes
+  // from the model, guided by each scenario's INICIO: instruction. Candidate
+  // for PLAN Stage 5 dead-code removal.
+  getAllConversationStarters() {
+    return {
       restaurant: {
         beginner: [
           "¡Hola! ¡Bienvenido al restaurante! ¿Mesa para cuántas personas?",
@@ -500,8 +520,8 @@ RECUERDA: Mantén la conversación fluida y natural. ¡El estudiante debe sentir
           "¡Bienvenido! ¿Cuántos días va a estar aquí?"
         ],
         intermediate: [
-          "¡Bienvenido a nuestra ciudad! ¿Es su primer viaje a España?",
-          "¡Hola! ¿Qué lugares le gustaría visitar durante su estancia?",
+          "¡Bienvenido a nuestra ciudad! ¿Es su primer viaje a México?",
+          "¡Hola! ¿Qué lugares le gustaría visitar durante su estadía?",
           "¡Buenos días! ¿Necesita información sobre transporte público?"
         ],
         advanced: [
@@ -665,19 +685,19 @@ RECUERDA: Mantén la conversación fluida y natural. ¡El estudiante debe sentir
       },
       apartment: {
         beginner: [
-          "¡Hola! ¿Busca apartamento? ¿Cuántas habitaciones?",
-          "¡Bienvenido! ¿Le gusta este apartamento?",
+          "¡Hola! ¿Busca departamento? ¿Cuántas recámaras?",
+          "¡Bienvenido! ¿Le gusta este departamento?",
           "¿Cuánto quiere pagar al mes?"
         ],
         intermediate: [
-          "¡Hola! Este apartamento tiene dos habitaciones y mucha luz. ¿Le interesa verlo?",
-          "¡Bienvenido! ¿Qué es lo más importante para usted en un apartamento?",
-          "¿Ya conoce el vecindario o es la primera vez que viene por aquí?"
+          "¡Hola! Este departamento tiene dos recámaras y mucha luz. ¿Le interesa verlo?",
+          "¡Bienvenido! ¿Qué es lo más importante para usted en un departamento?",
+          "¿Ya conoce la colonia o es la primera vez que viene por aquí?"
         ],
         advanced: [
-          "¡Bienvenido! Este apartamento se renovó recientemente y tiene vistas espectaculares. Déjeme mostrarle los detalles.",
-          "¡Hola! Antes de ver el apartamento, cuénteme qué tipo de contrato está buscando.",
-          "¿Le gustaría que discutamos las condiciones de la fianza y la duración mínima del contrato?"
+          "¡Bienvenido! Este departamento se renovó recientemente y tiene una vista espectacular. Déjeme mostrarle los detalles.",
+          "¡Hola! Antes de ver el departamento, cuénteme qué tipo de contrato está buscando.",
+          "¿Le gustaría que revisemos las condiciones del depósito y la duración mínima del contrato?"
         ]
       },
       salon: {
@@ -749,7 +769,10 @@ RECUERDA: Mantén la conversación fluida y natural. ¡El estudiante debe sentir
         ]
       }
     };
-    
+  }
+
+  getConversationStarters(scenario, difficulty = 'beginner') {
+    const starters = this.getAllConversationStarters();
     const scenarioStarters = starters[scenario] || starters.restaurant;
     const difficultyStarters = scenarioStarters[difficulty] || scenarioStarters.beginner;
     

@@ -45,3 +45,94 @@ describe('ConversationPrompts scenarios', () => {
     expect(restaurantBeginnerStarters).toContain(fallback);
   });
 });
+
+// PLAN Stage 3a: the tutor speaks Mexican Spanish (DECISIONS 2026-11-24).
+// The persona used to say "española/latinoamericana" and its examples mixed
+// Spain and Mexico, which invites a speech-to-speech model's accent to drift.
+describe('Mexican Spanish dialect', () => {
+  const prompts = new ConversationPrompts();
+
+  const allSystemPrompts = () =>
+    ALL_SCENARIOS.flatMap((scenario) =>
+      DIFFICULTIES.map((difficulty) => ({
+        label: `${scenario}/${difficulty}`,
+        text: prompts.generateSystemPrompt(scenario, difficulty, [{ spanish: 'agua', english: 'water' }]),
+      }))
+    );
+
+  const allStarters = () =>
+    Object.entries(prompts.getAllConversationStarters()).flatMap(([scenario, byLevel]) =>
+      Object.entries(byLevel).flatMap(([level, lines]) =>
+        lines.map((text) => ({ label: `starter ${scenario}/${level}`, text }))
+      )
+    );
+
+  const everyText = () => [...allSystemPrompts(), ...allStarters()];
+
+  // Unicode-aware word boundaries: JavaScript's \b treats accented letters as
+  // non-word characters, so /\bos\b/ falsely matches inside "cumpleaños".
+  const word = (alternatives) => new RegExp(`(?<!\\p{L})(${alternatives})(?!\\p{L})`, 'iu');
+
+  function offenders(pattern) {
+    return everyText()
+      .filter(({ text }) => pattern.test(text))
+      .map(({ label, text }) => `${label}: …${text.match(pattern)[0]}…`);
+  }
+
+  it('includes an explicit Mexican Spanish instruction in every system prompt', () => {
+    const instruction = prompts.getDialectPrompt();
+    expect(instruction).toMatch(/México|mexican/i);
+    expect(instruction).toContain('ustedes');
+    for (const { label, text } of allSystemPrompts()) {
+      expect(text, label).toContain(instruction);
+    }
+  });
+
+  it('no longer describes the tutor or setting as Spain/Latin America in general', () => {
+    expect(offenders(/español(a)?\/latinoamerican[oa]/i)).toEqual([]);
+  });
+
+  it('never refers to Spain as the setting', () => {
+    expect(offenders(word('España'))).toEqual([]);
+  });
+
+  it('drops the stage-direction instruction the model could speak aloud', () => {
+    expect(offenders(/gestos descriptivos/i)).toEqual([]);
+  });
+
+  it('uses no vosotros forms', () => {
+    expect(offenders(word('vosotr[oa]s|os|habéis|tenéis|queréis|sois|estáis'))).toEqual([]);
+  });
+
+  it('uses Mexican rather than Spain vocabulary for the terms the scenarios need', () => {
+    // Spain term -> the Mexican term used instead: camarero/a -> mesero/a,
+    // estancia -> estadía, alquiler -> renta, fianza -> depósito,
+    // apartamento -> departamento.
+    expect(offenders(word('camarer[oa]s?|estancia|alquiler|fianza|apartamentos?'))).toEqual([]);
+  });
+
+  // PR #18 review: a learner's list may contain Spain terms (coche, zumo…),
+  // which conflicts with "use Mexican vocabulary". User's choice: use the
+  // target word as listed (it's what they want to practice) and mention the
+  // Mexican equivalent once.
+  it('tells the model how to handle a target word from another region', () => {
+    const withWords = prompts.generateSystemPrompt('travel', 'beginner', [{ spanish: 'coche', english: 'car' }]);
+    const block = withWords.slice(withWords.indexOf('VOCABULARIO OBJETIVO'));
+    expect(block).toMatch(/otra región/);
+    expect(block).toMatch(/tal como aparece/);
+    expect(block).toMatch(/equivalente mexicano/);
+  });
+
+  it('adds no target-word rule when there are no target words', () => {
+    expect(prompts.generateSystemPrompt('travel', 'beginner', [])).not.toMatch(/VOCABULARIO OBJETIVO/);
+  });
+
+  it('getConversationStarters still picks from the full starter list', () => {
+    const all = prompts.getAllConversationStarters();
+    for (const scenario of ALL_SCENARIOS) {
+      for (const difficulty of DIFFICULTIES) {
+        expect(all[scenario][difficulty]).toContain(prompts.getConversationStarters(scenario, difficulty));
+      }
+    }
+  });
+});

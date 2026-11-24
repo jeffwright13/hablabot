@@ -49,7 +49,7 @@ Current coverage, by module:
 | `js/realtime/turn-profiles.js` | `turn-profiles.test.js` | |
 | `js/realtime/session-vocab-bridge.js` | `session-vocab-bridge.test.js` | |
 | `js/vocabulary/manager.js` | `vocabulary-manager.test.js` | |
-| `js/ai/prompts.js` | `prompts.test.js` | |
+| `js/ai/prompts.js` | `prompts.test.js` | scenarios, starters, and Mexican Spanish dialect consistency across every prompt and starter |
 | `js/utils/config.js` | `config.test.js` | |
 | `js/utils/version.js` | `version.test.js` | |
 | `js/utils/models.js` | `models.test.js` | registry, retired-ID migration, and a **shutdown tripwire** that fails 30 days before a default model's announced shutdown |
@@ -106,6 +106,11 @@ before.
 - [ ] Beginner: a 2-second thinking pause doesn't trigger a reply. Advanced: replies come quickly.
 - [ ] User and AI transcripts each appear exactly once, with the correct speaker.
 - [ ] Barge-in: talking over the tutor stops its audio.
+- [ ] The tutor keeps a consistent Mexican accent and vocabulary (e.g. says "departamento", not
+      "piso" or "apartamento") across turns and difficulties, and never speaks stage directions.
+      **A check that needs no fluency:** ask her to say "cerveza, zapato, gracias, cinco". Mexican
+      seseo sounds like **s** ("ser-VE-sa"); Castilian sounds like English **th** ("ther-VE-tha").
+      Also skim her transcripts for Spain markers: vosotros, os, coche, vale, piso.
 - [ ] Voice, speech rate and volume settings apply to the next session.
 - [ ] Settings → Advanced: the placeholders show the default model IDs, and the note shows the
       last-checked date and any shutdown date. An override persists across a reload. A bogus
