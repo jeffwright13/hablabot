@@ -172,7 +172,10 @@ Split into two parts, because the dialect is decided but the voice isn't:
   - deleting a profile deletes its IndexedDB database. Add `fake-indexeddb` as a dev dependency
     with approval, or inject `indexedDB.deleteDatabase`.
 - Remove the dead code and settings. The exact list will be confirmed before deleting:
-  `js/speech/*`, `js/utils/audio.js`, and the unused config keys (SPEC §5).
+  `js/speech/*`, `js/utils/audio.js`, the unused config keys (SPEC §5), and the never-called
+  `prompts.js` helpers `getConversationStarters()`/`getAllConversationStarters()`,
+  `generateFollowUp()` and `getVocabularyIntegration()` (PR #18 review), along with the
+  starter half of the dialect tests.
 - Fix the "Hold the microphone button" toast and escape the profile-card fields.
 
 ## Stage 6 — External TTS spike ⏸ (`experiment/external-tts`; key-handling answer needed)

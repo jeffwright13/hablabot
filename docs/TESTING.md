@@ -108,6 +108,9 @@ before.
 - [ ] Barge-in: talking over the tutor stops its audio.
 - [ ] The tutor keeps a consistent Mexican accent and vocabulary (e.g. says "departamento", not
       "piso" or "apartamento") across turns and difficulties, and never speaks stage directions.
+      **A check that needs no fluency:** ask her to say "cerveza, zapato, gracias, cinco". Mexican
+      seseo sounds like **s** ("ser-VE-sa"); Castilian sounds like English **th** ("ther-VE-tha").
+      Also skim her transcripts for Spain markers: vosotros, os, coche, vale, piso.
 - [ ] Voice, speech rate and volume settings apply to the next session.
 - [ ] Settings → Advanced: the placeholders show the default model IDs, and the note shows the
       last-checked date and any shutdown date. An override persists across a reload. A bogus

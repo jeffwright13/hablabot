@@ -469,7 +469,8 @@ EJEMPLO: "Si hubiera sabido que le gustaba tanto la comida picante, le habría r
       prompt += `\n\nVOCABULARIO OBJETIVO para esta sesión:
 ${targetWords.map(word => `- ${word.spanish}: ${word.english}`).join('\n')}
 
-IMPORTANTE: Usa estas palabras naturalmente en la conversación. Repite cada palabra 2-3 veces en diferentes contextos.`;
+IMPORTANTE: Usa estas palabras naturalmente en la conversación. Repite cada palabra 2-3 veces en diferentes contextos.
+Si una palabra objetivo es de otra región (por ejemplo "coche" en vez de "carro"), úsala tal como aparece en la lista, porque es la palabra que el estudiante quiere practicar, y menciona una vez el equivalente mexicano (por ejemplo: "el coche... aquí en México decimos carro").`;
     }
     
     // Add session goals
@@ -489,6 +490,10 @@ RECUERDA: Mantén la conversación fluida y natural. ¡El estudiante debe sentir
   // Every opening line, by scenario then difficulty. Separate from
   // getConversationStarters() (which picks one at random) so tests can check
   // all of them, e.g. for dialect consistency.
+  // NOT SENT TO THE MODEL: nothing outside this file calls the starters (or
+  // generateFollowUp/getVocabularyIntegration). The live opening line comes
+  // from the model, guided by each scenario's INICIO: instruction. Candidate
+  // for PLAN Stage 5 dead-code removal.
   getAllConversationStarters() {
     return {
       restaurant: {
@@ -687,7 +692,7 @@ RECUERDA: Mantén la conversación fluida y natural. ¡El estudiante debe sentir
         intermediate: [
           "¡Hola! Este departamento tiene dos recámaras y mucha luz. ¿Le interesa verlo?",
           "¡Bienvenido! ¿Qué es lo más importante para usted en un departamento?",
-          "¿Ya conoce el vecindario o es la primera vez que viene por aquí?"
+          "¿Ya conoce la colonia o es la primera vez que viene por aquí?"
         ],
         advanced: [
           "¡Bienvenido! Este departamento se renovó recientemente y tiene una vista espectacular. Déjeme mostrarle los detalles.",

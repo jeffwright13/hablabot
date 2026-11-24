@@ -111,6 +111,22 @@ describe('Mexican Spanish dialect', () => {
     expect(offenders(word('camarer[oa]s?|estancia|alquiler|fianza|apartamentos?'))).toEqual([]);
   });
 
+  // PR #18 review: a learner's list may contain Spain terms (coche, zumo…),
+  // which conflicts with "use Mexican vocabulary". User's choice: use the
+  // target word as listed (it's what they want to practice) and mention the
+  // Mexican equivalent once.
+  it('tells the model how to handle a target word from another region', () => {
+    const withWords = prompts.generateSystemPrompt('travel', 'beginner', [{ spanish: 'coche', english: 'car' }]);
+    const block = withWords.slice(withWords.indexOf('VOCABULARIO OBJETIVO'));
+    expect(block).toMatch(/otra región/);
+    expect(block).toMatch(/tal como aparece/);
+    expect(block).toMatch(/equivalente mexicano/);
+  });
+
+  it('adds no target-word rule when there are no target words', () => {
+    expect(prompts.generateSystemPrompt('travel', 'beginner', [])).not.toMatch(/VOCABULARIO OBJETIVO/);
+  });
+
   it('getConversationStarters still picks from the full starter list', () => {
     const all = prompts.getAllConversationStarters();
     for (const scenario of ALL_SCENARIOS) {

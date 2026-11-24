@@ -42,7 +42,9 @@ this order:
 3. the scenario block;
 4. the difficulty block;
 5. a target-vocabulary block (only when there are target words), asking for each word to be
-   used 2–3 times;
+   used 2–3 times. A target word from another region (e.g. "coche") is used exactly as listed,
+   with the Mexican equivalent mentioned once ("aquí en México decimos carro"). This was the
+   user's choice (PR #18 review);
 6. the session goals.
 
 The prompt is sent once, in `session.update`, at connect time. It is never changed during a
@@ -53,15 +55,19 @@ session.
   accent, seseo, "ustedes" for the plural you, and Mexican vocabulary (celular, carro,
   departamento, renta, recámara, colonia, mesero/a, platillo…). When the learner uses a word from
   another region, the tutor understands it and recasts with the Mexican word.
-- The persona is "auténticamente mexicana", and the scenario text, examples and starters
-  (`getAllConversationStarters()`) use Mexican settings and vocabulary.
+- The persona is "auténticamente mexicana", and the scenario text and examples use Mexican
+  settings and vocabulary. So do the conversation starters (`getAllConversationStarters()`), but
+  **the starters are never sent to the model**. Nothing outside `prompts.js` calls them, and the
+  live opening line comes from the model via each scenario's `INICIO:` instruction. The same is
+  true of `generateFollowUp()` and `getVocabularyIntegration()`.
 - `tests/prompts.test.js` checks every system prompt and starter for:
   - the instruction being present;
   - no "España" or "español/latinoamericano" wording;
   - no vosotros forms (using Unicode-aware word boundaries);
   - no Spain terms camarero/a, estancia, alquiler, fianza or apartamento.
-- **Not yet verified by ear:** whether the model actually keeps a consistent Mexican accent (PLAN
-  Stage 3a live check).
+- **Live check (user, 2026-11-24):** one conversation "seems OK", but the user notes it's hard to
+  judge at their level of Spanish. Not yet confirmed by a fluent listener. See the seseo check in
+  `TESTING.md`.
 
 ### 2.3 Turn-taking
 - Turn-taking is entirely server-side: the Realtime API's `server_vad`. There is no push-to-talk.
