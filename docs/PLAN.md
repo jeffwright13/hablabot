@@ -119,11 +119,11 @@ DECISIONS entry; SPEC §5 and §7; CLAUDE.md model rule.
   `Config` defaults (`freshDefaults()`).
 - Coverage minimums raised: global 36/80/43/36, `js/realtime/` 95/88/84/95.
 
-## Stage 3 — Voice A/B and prompt ⬜ (unblocked: dialect is **Mexican Spanish**)
+## Stage 3 — Voice A/B and prompt 🔨 (dialect is **Mexican Spanish**)
 
 Split into two parts, because the dialect is decided but the voice isn't:
 
-**3a. Pin the dialect (ready to build).**
+**3a. Pin the dialect 🔨 (`feature/mexican-spanish-dialect`, built; live check pending).**
 - `prompts.js`: replace the Spain or mixed cues with an explicit Mexican Spanish instruction
   (accent, seseo, `ustedes`, Mexican vocabulary). All five, as of 2026-11-24 (PR #17 review):
   - L18 persona: "Auténticamente española/latinoamericana"
@@ -143,6 +143,10 @@ Split into two parts, because the dialect is decided but the voice isn't:
     prompts it falsely matches `os` in "cumpleaños" and "desafíos" (5 hits). The Unicode
     version finds 0.
 - Live check: a few turns per difficulty, listening for a consistent Mexican accent.
+- *Built 2026-11-24:* a vocabulary scan beyond the five listed cues also found camarero/a,
+  estancia, and the whole apartment scenario (apartamento, alquiler, fianza, habitación,
+  vecindario). These now use mesero/a, estadía, departamento, renta, depósito, recámara and
+  colonia. The new test caught one more `fianza`, in an advanced starter.
 
 **3b. Choose the voice (waits for the listening comparison).**
 0. With no code change, and after 3a lands, listen to `alloy`, `marin` and `cedar` at speeds 0.9

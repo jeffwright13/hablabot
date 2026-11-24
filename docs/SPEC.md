@@ -34,22 +34,34 @@ same commit as the code that changes it. Reasoning goes in `DECISIONS.md`; plann
   tag), then shuffled (`VocabularyManager.selectWordsForSession()`).
 
 ### 2.2 System prompt
-`HablaBotPrompts.generateSystemPrompt(scenario, difficulty, targetWords)` joins five parts, in
+`HablaBotPrompts.generateSystemPrompt(scenario, difficulty, targetWords)` joins six parts, in
 this order:
 1. the base persona (María: patient, implicit recasts, 1–2 sentence replies, Spanish only
    unless the learner is lost);
-2. the scenario block;
-3. the difficulty block;
-4. a target-vocabulary block (only when there are target words), asking for each word to be
+2. the dialect block (`getDialectPrompt()`; see Dialect below);
+3. the scenario block;
+4. the difficulty block;
+5. a target-vocabulary block (only when there are target words), asking for each word to be
    used 2–3 times;
-5. the session goals.
+6. the session goals.
 
 The prompt is sent once, in `session.update`, at connect time. It is never changed during a
 session.
 
-Dialect: **decided, Mexican Spanish** (DECISIONS 2026-11-24), to be implemented in PLAN Stage 3a.
-Until then the code still says "española/latinoamericana", its examples mix Spain and Mexico,
-and no accent is pinned.
+**Dialect: Mexican Spanish** (DECISIONS 2026-11-24; implemented in PLAN Stage 3a).
+- Every system prompt includes `getDialectPrompt()`. It asks for a consistent central-Mexican
+  accent, seseo, "ustedes" for the plural you, and Mexican vocabulary (celular, carro,
+  departamento, renta, recámara, colonia, mesero/a, platillo…). When the learner uses a word from
+  another region, the tutor understands it and recasts with the Mexican word.
+- The persona is "auténticamente mexicana", and the scenario text, examples and starters
+  (`getAllConversationStarters()`) use Mexican settings and vocabulary.
+- `tests/prompts.test.js` checks every system prompt and starter for:
+  - the instruction being present;
+  - no "España" or "español/latinoamericano" wording;
+  - no vosotros forms (using Unicode-aware word boundaries);
+  - no Spain terms camarero/a, estancia, alquiler, fianza or apartamento.
+- **Not yet verified by ear:** whether the model actually keeps a consistent Mexican accent (PLAN
+  Stage 3a live check).
 
 ### 2.3 Turn-taking
 - Turn-taking is entirely server-side: the Realtime API's `server_vad`. There is no push-to-talk.
