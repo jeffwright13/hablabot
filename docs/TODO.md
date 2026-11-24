@@ -42,6 +42,11 @@ Asked during the 2026-11-24 architecture/TTS review. The dialect question was an
   3. Repeat with `gpt-live-transcribe`. **Caveat:** the app sends `language: 'es'`, but per the
      docs this model takes `languages: ["es"]`. A failure that mentions `language` is about the
      field, not necessarily the model, and needs a small code change to retest.
+  **Reading a failure:** judge by OpenAI's own text (quoted inside the toast) and by the `param`
+  in the console's `RealtimeSession: API error` log line, not only by the toast's first sentence.
+  Since PR #17, a "model … was rejected" toast appears only when `param` is the model field
+  itself (or, with no `param`, when the message quotes the model ID). A rejected `language`
+  field shows OpenAI's text as-is.
   4. Clear the field afterwards (blank means the default).
 
   Record the result in DECISIONS. If one passes, change `DEFAULT_MODELS.transcription` (with

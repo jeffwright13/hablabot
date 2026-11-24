@@ -47,8 +47,9 @@ this order:
 The prompt is sent once, in `session.update`, at connect time. It is never changed during a
 session.
 
-Open issue (`PLAN.md`, Stage 3): the persona says "española/latinoamericana" and its examples
-mix Spain and Mexico. No accent or dialect is pinned.
+Dialect: **decided, Mexican Spanish** (DECISIONS 2026-11-24), to be implemented in PLAN Stage 3a.
+Until then the code still says "española/latinoamericana", its examples mix Spain and Mexico,
+and no accent is pinned.
 
 ### 2.3 Turn-taking
 - Turn-taking is entirely server-side: the Realtime API's `server_vad`. There is no push-to-talk.
@@ -169,9 +170,11 @@ the registry's `MODELS_LAST_CHECKED`, and the tests.
   shutdown (for `gpt-4o-transcribe`, from 2027-01-27). Settings → Advanced also shows the date.
 
 ### Error handling
-OpenAI doesn't document the error for a missing or retired model (checked 2026-11-24). An error
-is treated as a model rejection when its `param` names that role's field, or its message quotes
-the model ID. The learner then sees "<Role> model "<id>" was rejected by OpenAI (it may have been
+OpenAI doesn't document the error for a missing or retired model (checked 2026-11-24). When the
+error names a `param`, it decides: the error is a model rejection only if `param` is that role's
+model field (`model`/`*.model`; transcription when the path contains `transcription`). Any other
+field, such as `…transcription.language`, passes through as-is. With no `param`, an error is a
+model rejection if its message quotes the model ID. The learner then sees "<Role> model "<id>" was rejected by OpenAI (it may have been
 retired or renamed): <OpenAI's message> Change it in Settings → Advanced." This covers the token
 request, server `error` events, and transcription failures, which are reported once per
 connection. Other errors are unchanged. **Not yet confirmed against a real rejection**; record

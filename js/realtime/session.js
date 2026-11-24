@@ -490,20 +490,26 @@ class RealtimeSession {
   }
 
   // OpenAI doesn't document the error returned for a missing or retired
-  // model (checked 2026-11-24). Treat an error as a model rejection when its
-  // `param` names that role's field, or its message quotes the model ID.
+  // model (checked 2026-11-24). When the error names a `param`, trust it: it's
+  // a model rejection only if the param IS that role's model field (e.g.
+  // `session.model`, `session.audio.input.transcription.model`). Any other
+  // param (say `...transcription.language`) is about a different field, even
+  // if the message happens to quote the model ID (PR #17 review). Only when
+  // there's no param, fall back to the message quoting the model ID.
   // Returns a user-facing message naming the model and where to change it,
   // or null when the error isn't about that model.
   _modelRejectionMessage(role, apiError, apiMessage) {
     const model = this._models && this._models[role];
     if (!model || !apiError) return null;
 
-    const param = typeof apiError.param === 'string' ? apiError.param : '';
+    const param = typeof apiError.param === 'string' ? apiError.param.trim() : '';
     const message = typeof apiError.message === 'string' ? apiError.message : '';
-    const paramMatches = role === 'transcription'
-      ? param.includes('transcription')
-      : param.includes('model') && !param.includes('transcription');
-    if (!paramMatches && !message.includes(model)) return null;
+    const isModelField = param === 'model' || param.endsWith('.model');
+    const isTranscriptionField = param.includes('transcription');
+    const matches = param
+      ? isModelField && (role === 'transcription' ? isTranscriptionField : !isTranscriptionField)
+      : message.includes(model);
+    if (!matches) return null;
 
     const label = role === 'transcription' ? 'Transcription' : 'Realtime';
     // End OpenAI's text as a sentence, so it can't run on into ours.

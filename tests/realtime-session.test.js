@@ -352,6 +352,38 @@ describe('RealtimeSession model IDs', () => {
     expect(errors[0]).toContain('Settings → Advanced');
   });
 
+  // PR #17 review: a rejected `language` field has a param like
+  // session.audio.input.transcription.language. Matching any param that
+  // contains "transcription" would mislabel it as a model rejection, which
+  // is exactly the wrong signal during the gpt-live-transcribe live test.
+  it('does not call a rejected non-model transcription field a model rejection', async () => {
+    const pc = await connectAndOpen(session, 'sk-test', { transcriptionModel: 'gpt-live-transcribe' });
+    const errors = [];
+    session.onError = (msg) => errors.push(msg);
+
+    pc.dataChannel.simulateMessage({
+      type: 'error',
+      error: {
+        message: "Unknown parameter 'language' for model gpt-live-transcribe; use 'languages'.",
+        param: 'session.audio.input.transcription.language',
+      },
+    });
+
+    expect(errors).toEqual(["Unknown parameter 'language' for model gpt-live-transcribe; use 'languages'."]);
+  });
+
+  it('trusts a named param over a model ID quoted in the message', async () => {
+    mockState.tokenOk = false;
+    mockState.tokenStatus = 400;
+    mockState.tokenErrorBody = { error: { message: 'Voice not supported by gpt-realtime-2.1.', param: 'session.audio.output.voice' } };
+    const errors = [];
+    session.onError = (msg) => errors.push(msg);
+
+    await expect(session.connect('sk-test', { model: 'gpt-realtime-2.1' })).rejects.toThrow();
+
+    expect(errors).toEqual(['Voice not supported by gpt-realtime-2.1.']);
+  });
+
   it('passes other server error events through unchanged', async () => {
     const pc = await connectAndOpen(session, 'sk-test', {});
     const errors = [];

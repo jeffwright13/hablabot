@@ -124,13 +124,24 @@ DECISIONS entry; SPEC §5 and §7; CLAUDE.md model rule.
 Split into two parts, because the dialect is decided but the voice isn't:
 
 **3a. Pin the dialect (ready to build).**
-- `prompts.js`: replace "Auténticamente española/latinoamericana" with an explicit Mexican Spanish
-  instruction (accent, seseo, `ustedes`, Mexican vocabulary). Make the scenario examples
-  consistent: e.g. the Spain-specific "paella… típico de España" intermediate example. Drop
-  "gestos descriptivos en el texto", which risks the model speaking stage directions aloud.
-- Tests first in `prompts.test.js`: every generated prompt (all scenarios × difficulties)
-  contains the dialect instruction; no prompt contains "vosotros" forms or the stage-direction
-  instruction; the persona no longer says "española/latinoamericana".
+- `prompts.js`: replace the Spain or mixed cues with an explicit Mexican Spanish instruction
+  (accent, seseo, `ustedes`, Mexican vocabulary). All five, as of 2026-11-24 (PR #17 review):
+  - L18 persona: "Auténticamente española/latinoamericana"
+  - L47 restaurant: "un restaurante español/latinoamericano"
+  - L389 beginner: "Usa gestos descriptivos en el texto" (drop it: the model may speak stage
+    directions aloud)
+  - L418 intermediate example: "¿Ha probado la paella? Es un plato típico de España."
+  - L503 travel opener: "¿Es su primer viaje a España?"
+- Tests first in `prompts.test.js`, over every generated prompt (all scenarios × difficulties)
+  and the conversation starters:
+  - each contains the dialect instruction;
+  - none says "española/latinoamericana" or "España", or contains the stage-direction
+    instruction;
+  - none contains vosotros forms. Use an explicit word list with **Unicode-aware boundaries**:
+    `/(?<!\p{L})(vosotr[oa]s|os|habéis|tenéis|queréis|sois|estáis)(?!\p{L})/u`. Don't use
+    `\b`: JavaScript's `\b` treats accented letters as non-word characters, and against today's
+    prompts it falsely matches `os` in "cumpleaños" and "desafíos" (5 hits). The Unicode
+    version finds 0.
 - Live check: a few turns per difficulty, listening for a consistent Mexican accent.
 
 **3b. Choose the voice (waits for the listening comparison).**
