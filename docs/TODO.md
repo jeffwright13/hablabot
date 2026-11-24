@@ -21,6 +21,28 @@ Asked during the 2026-11-24 architecture/TTS review. Not yet answered.
   much hardening the localStorage key and self-XSS in profile cards need.
 - **Other target languages?** That decides how general the model and voice registry should be.
 
+## Model decisions (deadline-driven)
+
+- **Pick a replacement for `gpt-4o-transcribe` before 2027-02-26.** OpenAI's deprecations page
+  (notice 2026-08-26) names `gpt-live-transcribe` or `gpt-transcribe`, but per their model pages
+  (read 2026-11-24) neither works as a drop-in for HablaBot's WebRTC speech-to-speech session
+  with server VAD. `gpt-transcribe` works in a Realtime session only over WebSocket, with
+  manual turn commits. `gpt-live-transcribe` and `gpt-realtime-whisper` work only in
+  transcription-only sessions, and `gpt-live-transcribe` doesn't support server VAD and uses
+  `languages: [...]`, not `language`. Options to evaluate:
+  1. Live-test whether `gpt-transcribe` or `gpt-live-transcribe` actually works in the current
+     session despite the docs. Settings → Advanced makes this a no-code test. Note that
+     `gpt-realtime-whisper` "never produced a transcript" in July 2026 testing, but that was
+     during the stale-service-worker period (DECISIONS, Issue #8), so the result may be invalid.
+  2. Run transcription as a separate transcription session alongside the conversation session.
+  3. Move the conversation to `gpt-live-1.1` (`/v1/live/sessions`, a different API), which per
+     its page "transcribes speech more accurately and maintains a more consistent accent and
+     voice across languages". That bears directly on the voice-quality complaint, so evaluate it
+     together with PLAN Stage 7. Not read yet: the Live API guide
+     (`developers.openai.com/api/docs/guides/live`), its voices, and whether it supports speed.
+
+  The tripwire in `tests/models.test.js` fails from 2027-01-27 if this is still open.
+
 ## Open issues (GitHub)
 
 - **#9: Mute the mic during AI playback** (a workaround for echo when not using a headset).
@@ -31,6 +53,12 @@ Asked during the 2026-11-24 architecture/TTS review. Not yet answered.
 - **#11: Try a TURN server** to fix the Firefox-specific WebRTC disconnects.
 
 ## Known gaps
+
+- **CI uses Node 20, which has reached end of life.** `.github/workflows/test.yml` tests on Node 20.x
+  and 22.x and uses `actions/checkout@v4` and `actions/setup-node@v4`, which target Node 20. Since
+  PR #15, every run raises GitHub's warning: "Node.js 20 is deprecated … forced to run on
+  Node.js 24". Fix: move to current major versions of both actions, and test on current LTS
+  versions (22.x and 24.x). Check them against dreaming-tools' workflow (Node 22) at the time.
 
 - **Upgrade Vitest from 2 to the current major** (5.x at the time of writing; dreaming-tools is
   on 4.x). The remaining `npm audit` advisories (10 as of 2026-11-24: 3 critical, 1 high, 6
@@ -49,5 +77,10 @@ Asked during the 2026-11-24 architecture/TTS review. Not yet answered.
   into the new session is possible now that user transcripts work, but hasn't been designed.
 - **Profile cards insert `user.avatar` and `user.id` into `innerHTML`/`onclick` without escaping**
   (`app.js` `showUserSelection()`). The values are self-supplied, so this is self-XSS only today.
+- **In dark mode the header title is near-black on red.** `.app-header` uses `color: var(--white)`,
+  which the dark scheme redefines as `#1a1a1a`. That gives about 4.6:1 to 3.0:1 across the
+  gradient: it passes WCAG AA for large text (3:1), barely, but it's probably unintended. The
+  version label beside it already uses literal white for this reason. Decide whether the header
+  should keep white text in both schemes.
 - **The start toast says "Hold the microphone button to speak"** (`app.js` `startConversation()`),
   but there is no push-to-talk.

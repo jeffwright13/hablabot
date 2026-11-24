@@ -11,7 +11,6 @@ class HablaBotApp {
     this.config = null;
     this.database = null;
     this.realtimeSession = null;
-    this.conversationEngine = null;
     this.vocabularyManager = null;
 
     // DOM elements
@@ -94,10 +93,6 @@ class HablaBotApp {
     this.realtimeSession = window.HablaBotRealtimeSession;
     this.setupRealtimeCallbacks();
     
-    // Initialize AI conversation engine
-    this.conversationEngine = window.HablaBotConversation;
-    await this.conversationEngine.init(this.config, window.HablaBotPrompts);
-    
     // Initialize vocabulary manager
     this.vocabularyManager = window.HablaBotVocabulary;
     await this.vocabularyManager.init(this.database);
@@ -165,6 +160,9 @@ class HablaBotApp {
       speechRateValue: H.$('#speech-rate-value'),
       speechVolume: H.$('#speech-volume'),
       speechVolumeValue: H.$('#speech-volume-value'),
+      realtimeModelInput: H.$('#realtime-model'),
+      transcriptionModelInput: H.$('#transcription-model'),
+      modelSettingsNote: H.$('#model-settings-note'),
       
       // Modal and toast
       modalOverlay: H.$('#modal-overlay'),
@@ -235,6 +233,17 @@ class HablaBotApp {
       this.config.set('speechVolume', parseFloat(e.target.value));
     });
     
+    // Settings → Advanced: per-role model overrides (js/ui/model-settings.js)
+    this.modelSettings = window.HablaBotModelSettings.initModelSettings({
+      inputs: {
+        realtime: this.elements.realtimeModelInput,
+        transcription: this.elements.transcriptionModelInput,
+      },
+      note: this.elements.modelSettingsNote,
+      config: this.config,
+      registry: window.HablaBotModels,
+    });
+
     // Modal close
     H.on(this.elements.modalOverlay, 'click', (e) => {
       if (e.target === this.elements.modalOverlay) {
@@ -392,8 +401,12 @@ class HablaBotApp {
       const systemPrompt = window.HablaBotPrompts.generateSystemPrompt(
         scenario, difficulty, targetWords
       );
+      // Model IDs come only from the registry, with any Settings overrides.
+      const models = window.HablaBotModels.resolveModels(this.config.get('models'));
       try {
         await this.realtimeSession.connect(this.config.get('openaiApiKey'), {
+          model: models.realtime,
+          transcriptionModel: models.transcription,
           instructions: systemPrompt,
           voice: this.config.get('realtimeVoice') || 'alloy',
           speed: this.config.get('speechRate'),
@@ -460,84 +473,6 @@ class HablaBotApp {
   // No-op: listening is handled continuously by the Realtime API (server-side VAD).
   startListening() {}
   stopListening() {}
-
-  // Show text input fallback when speech recognition is not available
-  showTextInputFallback() {
-    const fallbackHtml = `
-      <div class="text-input-fallback">
-        <p>Speech recognition is not available. You can type your response:</p>
-        <div class="text-input-container">
-          <textarea id="text-input-fallback" placeholder="Type your Spanish response here" rows="3"></textarea>
-          <button id="submit-text-btn" class="primary-btn">Send</button>
-        </div>
-      </div>
-    `;
-    
-    const container = H.$('.speech-feedback');
-    if (!container) {
-      console.warn('Unable to show text input fallback: speech-feedback container not found');
-      return;
-    }
-    container.innerHTML = fallbackHtml;
-    
-    // Set up event listener for text submission
-    const submitBtn = H.$('#submit-text-btn');
-    const textInput = H.$('#text-input-fallback');
-    
-    H.on(submitBtn, 'click', () => {
-      const text = textInput.value.trim();
-      if (text) {
-        this.handleUserInput(text);
-        textInput.value = '';
-      }
-    });
-    
-    H.on(textInput, 'keypress', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        submitBtn.click();
-      }
-    });
-  }
-
-  // Handle user input (from speech or text)
-  async handleUserInput(userText) {
-    if (!this.currentSession) return;
-    
-    try {
-      // Show processing indicator
-      H.show(this.elements.processingIndicator);
-      
-      // Add user message to conversation history
-      this.addMessageToHistory('user', userText);
-      
-      // Process with conversation engine
-      const response = await this.conversationEngine.processUserInput(userText, this.currentSession);
-      
-      // Add AI response to conversation history
-      this.addMessageToHistory('assistant', response.message);
-      
-      // Speak the response if synthesis is available
-      if (this.speechSynthesis && this.speechSynthesis.isSupported) {
-        this.speechSynthesis.speak(response.message, { rate: 0.8 });
-      }
-      
-      // Update session data
-      if (response.vocabularyUsed) {
-        Object.keys(response.vocabularyUsed).forEach(wordId => {
-          this.currentSession.wordsUsed[wordId] = (this.currentSession.wordsUsed[wordId] || 0) + 1;
-        });
-      }
-      
-      // Hide processing indicator
-      H.hide(this.elements.processingIndicator);
-      
-    } catch (error) {
-      console.error('Failed to process user input:', error);
-      H.showToast('Failed to process your message. Please try again.', 'error');
-      H.hide(this.elements.processingIndicator);
-    }
-  }
 
   // No-op: speech results now arrive via Realtime API callbacks (onUserTranscript).
   handleSpeechResult(result) {}
@@ -967,6 +902,7 @@ class HablaBotApp {
       if (this.elements.voiceSelect) {
         this.elements.voiceSelect.value = this.config.get('realtimeVoice') || 'alloy';
       }
+      if (this.modelSettings) this.modelSettings.refresh();
       // Update user display
       this.updateUserDisplay();
     } catch (error) {

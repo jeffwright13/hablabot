@@ -16,6 +16,12 @@ class Config {
       // Not language-specific — the model speaks whatever language it's instructed
       // to, in this voice. 'alloy' matches the Realtime API's own default.
       realtimeVoice: 'alloy',
+
+      // Per-role AI model overrides (Settings → Advanced). Blank means "use the
+      // registry default"; the IDs actually sent come from
+      // HablaBotModels.resolveModels() in js/utils/models.js, the only place
+      // model IDs live.
+      models: { realtime: '', transcription: '' },
       
       // Learning Preferences
       sessionLength: 15, // minutes
@@ -40,8 +46,14 @@ class Config {
       enableAnalytics: false
     };
     
-    this.settings = { ...this.defaults };
+    this.settings = this.freshDefaults();
     this.listeners = new Map();
+  }
+
+  // A copy of the defaults that shares no nested objects with them, so
+  // editing settings.models in place can't silently change the defaults.
+  freshDefaults() {
+    return { ...this.defaults, models: { ...this.defaults.models } };
   }
 
   // Initialize configuration
@@ -53,7 +65,7 @@ class Config {
     } catch (error) {
       console.error('Failed to initialize configuration:', error);
       // Fall back to defaults
-      this.settings = { ...this.defaults };
+      this.settings = this.freshDefaults();
     }
   }
 
@@ -64,11 +76,37 @@ class Config {
       if (stored) {
         const parsed = JSON.parse(stored);
         this.settings = { ...this.defaults, ...parsed };
+        // models is nested: always merge it into a NEW object, so an older
+        // config with no models key doesn't end up sharing defaults.models
+        // (the spread above copies that reference), a partial one still gets
+        // every role, and a malformed value (e.g. an array) is ignored.
+        const storedModels = parsed.models && typeof parsed.models === 'object' && !Array.isArray(parsed.models)
+          ? parsed.models
+          : {};
+        this.settings.models = { ...this.defaults.models, ...storedModels };
+        if (this.migrateRetiredModels()) {
+          await this.save();
+        }
       }
     } catch (error) {
       console.error('Failed to load configuration:', error);
       throw error;
     }
+  }
+
+  // Rewrite any retired model ID saved as an override (krashen's
+  // migrate-on-read pattern): a stored value overrides the new default, so
+  // changing DEFAULT_MODELS alone wouldn't move users who saved an ID.
+  // Returns true when something changed.
+  migrateRetiredModels() {
+    const registry = window.HablaBotModels;
+    if (!registry) {
+      console.warn('Config: HablaBotModels not loaded; skipping model migration (check script order)');
+      return false;
+    }
+    const { models, changed } = registry.migrateRetiredModels(this.settings.models);
+    if (changed) this.settings.models = { ...this.defaults.models, ...models };
+    return changed;
   }
 
   // Save settings to storage
@@ -126,7 +164,7 @@ class Config {
 
   // Reset to defaults
   async reset() {
-    this.settings = { ...this.defaults };
+    this.settings = this.freshDefaults();
     await this.save();
     this.notifyListeners('reset', this.settings);
   }
@@ -140,6 +178,12 @@ class Config {
       this.settings.speechRate = this.defaults.speechRate;
     }
     
+    // Validate model overrides: a malformed saved value falls back to "no
+    // overrides" rather than breaking resolveModels() callers.
+    if (!this.settings.models || typeof this.settings.models !== 'object' || Array.isArray(this.settings.models)) {
+      this.settings.models = { ...this.defaults.models };
+    }
+
     // Validate speech volume
     if (this.settings.speechVolume < 0 || this.settings.speechVolume > 1) {
       this.settings.speechVolume = this.defaults.speechVolume;
