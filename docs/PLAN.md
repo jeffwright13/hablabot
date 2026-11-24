@@ -73,7 +73,7 @@ Bring the repo up to `~/coding/CLAUDE.md` and the `krashen` / `dreaming-tools` s
 - **Every later stage** raises the `vitest.config.js` minimums to its new measurement in its
   final commit.
 
-## Stage 2 — Model registry 🔨 (`feature/model-registry`, ready for review)
+## Stage 2 — Model registry ✅ (PR #16, released as v0.3.0)
 
 ### Scope
 Make model churn a one-line change plus a test.
@@ -119,14 +119,25 @@ DECISIONS entry; SPEC §5 and §7; CLAUDE.md model rule.
   `Config` defaults (`freshDefaults()`).
 - Coverage minimums raised: global 36/80/43/36, `js/realtime/` 95/88/84/95.
 
-## Stage 3 — Voice A/B and prompt ⏸ (dialect answer needed)
+## Stage 3 — Voice A/B and prompt ⬜ (unblocked: dialect is **Mexican Spanish**)
 
-0. With no code change, listen to `alloy`, `marin` and `cedar` at speeds 0.9 and 1.0 in Chrome,
-   on the same scenario, and write down what specifically sounds wrong.
-1. `config.js`: change the default voice to whichever wins. `prompts.js`: pin one dialect; drop
-   "gestos descriptivos en el texto", which risks the model speaking stage directions aloud.
-2. Tests: `config.test.js` checks the new default; `prompts.test.js` checks the dialect line is
-   present in every generated prompt and the stage-direction instruction is gone.
+Split into two parts, because the dialect is decided but the voice isn't:
+
+**3a. Pin the dialect (ready to build).**
+- `prompts.js`: replace "Auténticamente española/latinoamericana" with an explicit Mexican Spanish
+  instruction (accent, seseo, `ustedes`, Mexican vocabulary). Make the scenario examples
+  consistent: e.g. the Spain-specific "paella… típico de España" intermediate example. Drop
+  "gestos descriptivos en el texto", which risks the model speaking stage directions aloud.
+- Tests first in `prompts.test.js`: every generated prompt (all scenarios × difficulties)
+  contains the dialect instruction; no prompt contains "vosotros" forms or the stage-direction
+  instruction; the persona no longer says "española/latinoamericana".
+- Live check: a few turns per difficulty, listening for a consistent Mexican accent.
+
+**3b. Choose the voice (waits for the listening comparison).**
+0. With no code change, and after 3a lands, listen to `alloy`, `marin` and `cedar` at speeds 0.9
+   and 1.0 in Chrome, on the same scenario. Then answer the postponed "what sounds wrong"
+   question in `TODO.md`.
+1. `config.js`: change the default voice to whichever wins (test in `config.test.js`).
 
 ## Stage 4 — Time-to-first-audio metric ⬜
 
