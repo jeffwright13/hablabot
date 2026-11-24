@@ -51,6 +51,9 @@ every time.
   write the test that reproduces it before fixing it.
 - `npm test` runs the suite once, `npm run test:watch` re-runs it on changes. Paste the actual
   output before calling anything done.
+- `npm run test:coverage` adds v8 coverage with **ratcheting minimums** in `vitest.config.js`, and
+  is what CI runs. When tests raise coverage, raise the minimums to the new measurement in the
+  same commit. Never lower them; see `docs/TESTING.md`.
 - A **pre-commit hook** runs `npm test` and blocks the commit if it fails. Git doesn't version
   hooks, so the install snippet is in `docs/TESTING.md`. Never bypass it with `--no-verify`
   unless the user asks.

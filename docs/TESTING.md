@@ -58,9 +58,37 @@ Current coverage, by module:
 | `js/storage/database.js` | **none** | jsdom has no IndexedDB; needs `fake-indexeddb` |
 | `js/utils/user-manager.js`, `js/ui/*` | **none** | |
 
-Coverage reporting with minimum thresholds is planned for `PLAN.md` Stage 1. The thresholds start
-at today's actual figures and rise with each stage, aiming for dreaming-tools' levels (80%
-branches, 90% everything else).
+### Coverage
+
+```bash
+npm run test:coverage   # suite + v8 coverage; also what CI runs. HTML report in coverage/
+```
+
+`vitest.config.js` enforces minimums, and the run fails below any of them. They are a **ratchet,
+not a target**: each was set to the measured figure (rounded down) and only goes up. When a stage
+adds tests, raise the numbers to the new measurement in the same commit. Never lower one to get a
+commit through; write the missing tests instead. The long-term aim is dreaming-tools' 80%
+branches and 90% everything else.
+
+| Scope | Statements | Branches | Functions | Lines | Set |
+|---|---|---|---|---|---|
+| All shipped `js/**` (excluding the unloaded `js/speech/`) | 30 | 78 | 35 | 30 | 2026-11-24 baseline: 30 / 78.37 / 35.82 / 30 |
+| `js/realtime/**` | 94 | 87 | 83 | 94 | 2026-11-24 baseline: 94.53 / 87.06 / 83.33 / 94.53 |
+
+The global numbers are low because `app.js`, `database.js`, `user-manager.js`, `js/ui/*` and the
+dead `conversation.js`/`audio.js` have no tests. Branch coverage looks high only because untested
+files contribute few counted branches. The separate `js/realtime/**` floor exists because, in a
+global average dominated by untested files, a real regression in the core conversation path would
+barely move the totals. Vitest checks a glob floor against the **combined** figure for every
+matching file (the `js/realtime` folder row in the report), not against any single file's row.
+
+### Dependency audit
+
+The app ships **no npm packages**: `package.json` holds only test tooling. CI therefore runs
+`npm audit --omit=dev` as a blocking step (today: 0 vulnerabilities) and the full `npm audit` as a
+reported step that doesn't block but adds a warning annotation to the PR's checks summary, so
+advisories stay visible. This is the same policy as dreaming-tools. Every current advisory is in
+Vitest 2 and its tooling, and fixing them needs a major Vitest upgrade (tracked in `TODO.md`).
 
 ### 2. Live voice checks (manual)
 
@@ -85,7 +113,8 @@ before.
 
 ### 3. Release checklist
 
-- [ ] `npm test` passes; paste the output into the PR.
+- [ ] `npm run test:coverage` passes; paste the output into the PR. If coverage rose, raise the
+      minimums in `vitest.config.js` to match.
 - [ ] Live voice checks done in Chrome (and Firefox if anything in `js/realtime/` changed).
 - [ ] **Model check:** read OpenAI's deprecations page and update the `SPEC.md` §7 table and its
       "last checked" date. Model IDs change often; see `BRIEF.md`.
@@ -114,5 +143,7 @@ EOF
 chmod +x .git/hooks/pre-commit
 ```
 
-This is the same script `~/coding/dreaming-tools` uses. CI (`.github/workflows/test.yml`, Node 20
-and 22) runs the same `npm test` on every push and PR to `main`.
+This is the same script `~/coding/dreaming-tools` uses. The hook runs `npm test` (fast, no
+coverage). CI (`.github/workflows/test.yml`, Node 20 and 22) runs `npm run test:coverage` and the
+dependency audits on every push and PR to `main`, so a coverage drop is caught at the PR even
+though the hook doesn't check it.

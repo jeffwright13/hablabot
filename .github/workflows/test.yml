@@ -27,5 +27,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
-        run: npm test
+      # Runs the full suite and enforces the coverage minimums in
+      # vitest.config.js; a drop below any of them fails the build.
+      - name: Run tests with coverage
+        run: npm run test:coverage
+
+      # HablaBot ships no npm packages (the app is plain <script> files), so
+      # only runtime dependencies could reach users, and an advisory there
+      # fails the build. Dev tooling (Vitest, Vite) is audited too but only
+      # reported, so an advisory with no non-breaking fix can't block every
+      # PR. Same policy as ~/coding/dreaming-tools; see docs/DECISIONS.md.
+      - name: Audit runtime dependencies
+        run: npm audit --omit=dev
+
+      # Non-blocking, but not silent: a failing audit adds a warning
+      # annotation to the checks summary instead of only appearing in the log.
+      - name: Report dev dependency advisories
+        run: npm audit || echo "::warning title=npm audit::Dev-dependency advisories found (non-blocking; see this step's log and docs/TODO.md)"

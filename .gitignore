@@ -11,3 +11,6 @@ config/secrets.json
 # Editor artifacts
 *.swp
 .vscode/
+
+# Coverage reports (npm run test:coverage)
+coverage/
