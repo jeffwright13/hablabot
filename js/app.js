@@ -883,6 +883,9 @@ class HablaBotApp {
 
     // Update user display
     this.updateUserDisplay();
+
+    // Not awaited: the version label is cosmetic and must never delay startup.
+    window.HablaBotVersion.displayAppVersion(H.$('#app-version'));
   }
 
   // Handle keyboard shortcuts

@@ -1,3 +1,10 @@
+> **Superseded — kept for history only (archived 2026-11-24).** This is HablaBot's original
+> September 2025 spec, from before the OpenAI Realtime API migration. Much of it no longer matches
+> the app: Web Speech API recognition and synthesis, a GPT-4 chat engine, an ElevenLabs TTS
+> fallback, and SM-2 spaced repetition were all replaced or removed. For current behavior see
+> `docs/SPEC.md`, for constraints `docs/BRIEF.md`, for the reasoning `docs/DECISIONS.md`.
+> (Originally at the repo root as `Requirements and Implemetation.md`.)
+
 # HablaBot - Detailed Requirements & Implementation Specification
 
 ## Project Overview

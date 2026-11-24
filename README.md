@@ -85,8 +85,8 @@ so this hasn't been confirmed to work reliably on every platform.
 ### Starting a Conversation
 
 1. Choose a scenario and difficulty level
-2. Set a session length (5-30 minutes, informational — the conversation doesn't hard-stop when
-   it elapses)
+2. Set a session length (5-30 minutes). The session ends and is saved automatically when the
+   countdown reaches zero; you can also end it early with "End Session".
 3. Click "Start Conversation" and allow microphone access
 
 ### During the Conversation
@@ -130,7 +130,8 @@ during the conversation itself; just talk naturally and pause when you're done s
   script access to the page (e.g., a malicious browser extension) could read it. Treat it like
   any other credential you keep in browser storage.
 - The only external network calls HablaBot makes are to OpenAI's API, to run the conversation
-  itself
+  itself, and to a Google STUN server during WebRTC connection setup (it sees your IP address,
+  not your audio). See `PRIVACY.md` for details
 
 ## Technical Details
 
@@ -186,14 +187,31 @@ hablabot/
 │   └── utils/                 # Config, helpers, audio, per-user profile management
 ├── assets/                    # Icons (placeholder only), sounds, images
 ├── tests/                     # Vitest test suite
-└── docs/
-    └── DECISIONS.md            # Append-only architecture/design decision log
+└── docs/                      # BRIEF, SPEC, DECISIONS, PLAN, TODO, TESTING (see Project Docs)
+    └── archive/               # Superseded documents, kept for history
 ```
 
 ## Testing
 
-`npm test` runs the Vitest suite in `tests/`. See `docs/DECISIONS.md` for testing conventions
-and rationale.
+Development is test-driven: every behavior change starts with a failing Vitest test.
+
+```bash
+npm test          # run the suite once (also run by the pre-commit hook)
+npm run test:watch
+```
+
+See `docs/TESTING.md` for the test layers, how to install the pre-commit hook, and the manual
+live-voice checklist (a real conversation needs a real API key, so it can't be automated).
+
+## Project Docs
+
+- `docs/BRIEF.md`: what HablaBot is, who it's for, hard constraints
+- `docs/SPEC.md`: how each feature behaves today, including the AI model table
+- `docs/DECISIONS.md`: append-only log of design decisions and why
+- `docs/PLAN.md`: staged implementation plan
+- `docs/TODO.md`: open items not yet designed or scheduled
+- `docs/TESTING.md`: test layers, test gate, manual checklists
+- `PRIVACY.md`: what data goes where
 
 ## Troubleshooting
 

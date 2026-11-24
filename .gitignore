@@ -7,4 +7,7 @@ api_key.md
 *.env
 .env.local
 config/secrets.json
-CLAUDE.md
+
+# Editor artifacts
+*.swp
+.vscode/
