@@ -1,4 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+// models.js first: session.js falls back to window.HablaBotModels when a
+// caller passes no model IDs, matching index.html's load order.
+import { DEFAULT_MODELS } from '../js/utils/models.js';
 import RealtimeSession from '../js/realtime/session.js';
 
 // --- WebRTC mocks -----------------------------------------------------
@@ -83,7 +86,13 @@ function installMocks() {
     getUserMedia: vi.fn().mockResolvedValue({ getTracks: () => [mockTrack()] }),
   };
 
-  const state = { tokenOk: true, sdpOk: true, expiresAt: null };
+  const state = {
+    tokenOk: true,
+    sdpOk: true,
+    expiresAt: null,
+    tokenStatus: 401,
+    tokenErrorBody: { error: { message: 'bad key' } },
+  };
 
   global.fetch = vi.fn((url) => {
     if (url.includes('/client_secrets')) {
@@ -95,7 +104,7 @@ function installMocks() {
               ...(state.expiresAt ? { expires_at: state.expiresAt } : {}),
             }),
           })
-        : Promise.resolve({ ok: false, status: 401, json: async () => ({ error: { message: 'bad key' } }) });
+        : Promise.resolve({ ok: false, status: state.tokenStatus, json: async () => state.tokenErrorBody });
     }
     if (url.includes('/calls')) {
       return state.sdpOk
@@ -147,7 +156,7 @@ describe('RealtimeSession.connect', () => {
     expect(update.session.instructions).toBe('You are María.');
     expect(update.session.audio.output.voice).toBe('marin');
     expect(update.session.audio.input.turn_detection.type).toBe('server_vad');
-    expect(update.session.audio.input.transcription.model).toBe('gpt-4o-transcribe');
+    expect(update.session.audio.input.transcription.model).toBe(DEFAULT_MODELS.transcription);
     expect(update.session.audio.input.transcription.language).toBe('es');
   });
 
@@ -234,6 +243,139 @@ describe('RealtimeSession.connect', () => {
     expect(statuses.at(-1)).toEqual({ status: 'error', meta: {} });
     expect(errors).toEqual(['bad key']);
     expect(session.isConnected).toBe(false);
+  });
+});
+
+describe('RealtimeSession model IDs', () => {
+  let session;
+  let mockState;
+
+  beforeEach(() => {
+    mockState = installMocks();
+    session = new RealtimeSession();
+  });
+
+  function tokenRequestBody() {
+    const call = global.fetch.mock.calls.find(([url]) => url.includes('/client_secrets'));
+    return JSON.parse(call[1].body);
+  }
+
+  it('sends the caller-supplied realtime and transcription models', async () => {
+    const pc = await connectAndOpen(session, 'sk-test', {
+      model: 'gpt-realtime-2.1-mini',
+      transcriptionModel: 'gpt-transcribe',
+    });
+    const update = pc.dataChannel.sent.find(m => m.type === 'session.update');
+
+    expect(tokenRequestBody().session.model).toBe('gpt-realtime-2.1-mini');
+    expect(update.session.audio.input.transcription.model).toBe('gpt-transcribe');
+  });
+
+  it('falls back to the registry defaults when no models are passed', async () => {
+    const pc = await connectAndOpen(session, 'sk-test', {});
+    const update = pc.dataChannel.sent.find(m => m.type === 'session.update');
+
+    expect(tokenRequestBody().session.model).toBe(DEFAULT_MODELS.realtime);
+    expect(update.session.audio.input.transcription.model).toBe(DEFAULT_MODELS.transcription);
+  });
+
+  // OpenAI doesn't document the error shape for a missing or retired model
+  // (checked 2026-11-24), so these fixtures cover the two signals plausible
+  // for a model rejection: a `param` naming the model field, or a message
+  // quoting the model ID. Confirm against a real response when one is seen.
+  it('names the realtime model and points to Settings when the token request rejects it (param)', async () => {
+    mockState.tokenOk = false;
+    mockState.tokenStatus = 400;
+    mockState.tokenErrorBody = { error: { message: 'Invalid value.', param: 'session.model', type: 'invalid_request_error' } };
+    const errors = [];
+    session.onError = (msg) => errors.push(msg);
+
+    await expect(session.connect('sk-test', { model: 'gpt-gone' })).rejects.toThrow();
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain('Realtime model "gpt-gone"');
+    expect(errors[0]).toContain('Settings → Advanced');
+    expect(errors[0]).toContain('Invalid value.');
+  });
+
+  it('recognizes a model rejection from the message quoting the model ID', async () => {
+    mockState.tokenOk = false;
+    mockState.tokenStatus = 404;
+    mockState.tokenErrorBody = { error: { message: "The model `gpt-gone` does not exist or you do not have access to it." } };
+    const errors = [];
+    session.onError = (msg) => errors.push(msg);
+
+    await expect(session.connect('sk-test', { model: 'gpt-gone' })).rejects.toThrow();
+
+    expect(errors[0]).toContain('Realtime model "gpt-gone"');
+  });
+
+  it('leaves an unrelated token failure message unchanged', async () => {
+    mockState.tokenOk = false;
+    const errors = [];
+    session.onError = (msg) => errors.push(msg);
+
+    await expect(session.connect('sk-test', { model: 'gpt-realtime-2.1' })).rejects.toThrow('bad key');
+
+    expect(errors).toEqual(['bad key']);
+  });
+
+  it('names the transcription model when a server error event rejects it', async () => {
+    const pc = await connectAndOpen(session, 'sk-test', { transcriptionModel: 'gpt-gone-transcribe' });
+    const errors = [];
+    session.onError = (msg) => errors.push(msg);
+
+    pc.dataChannel.simulateMessage({
+      type: 'error',
+      error: { message: 'Invalid model.', param: 'session.audio.input.transcription.model' },
+    });
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain('Transcription model "gpt-gone-transcribe"');
+    expect(errors[0]).toContain('Settings → Advanced');
+  });
+
+  it('passes other server error events through unchanged', async () => {
+    const pc = await connectAndOpen(session, 'sk-test', {});
+    const errors = [];
+    session.onError = (msg) => errors.push(msg);
+
+    pc.dataChannel.simulateMessage({ type: 'error', error: { message: 'Rate limit reached.' } });
+
+    expect(errors).toEqual(['Rate limit reached.']);
+  });
+
+  it('surfaces a transcription failure that quotes the model, once per session', async () => {
+    const pc = await connectAndOpen(session, 'sk-test', { transcriptionModel: 'gpt-gone-transcribe' });
+    const errors = [];
+    session.onError = (msg) => errors.push(msg);
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const failure = {
+      type: 'conversation.item.input_audio_transcription.failed',
+      error: { message: 'Model gpt-gone-transcribe is not available.' },
+    };
+    pc.dataChannel.simulateMessage(failure);
+    pc.dataChannel.simulateMessage(failure);
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain('Transcription model "gpt-gone-transcribe"');
+    console.error.mockRestore();
+  });
+
+  it('keeps other transcription failures console-only, as before', async () => {
+    const pc = await connectAndOpen(session, 'sk-test', {});
+    const errors = [];
+    session.onError = (msg) => errors.push(msg);
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    pc.dataChannel.simulateMessage({
+      type: 'conversation.item.input_audio_transcription.failed',
+      error: { message: 'Audio too short.' },
+    });
+
+    expect(errors).toEqual([]);
+    console.error.mockRestore();
   });
 });
 

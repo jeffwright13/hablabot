@@ -2,7 +2,7 @@
 //
 // Reconnects live conversation transcripts to target-word usage tracking. The
 // migration to the Realtime API (js/realtime/session.js) dropped the vocabulary-
-// usage tracking that ConversationEngine (js/ai/conversation.js) used to do against
+// usage tracking that ConversationEngine (js/ai/conversation.js, deleted 2026-11-24) used to do against
 // chat-completions responses — that class is never invoked in the realtime flow.
 // This is new, small, session-scoped code rather than a resurrection of that class.
 //

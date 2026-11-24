@@ -59,7 +59,7 @@ Bring the repo up to `~/coding/CLAUDE.md` and the `krashen` / `dreaming-tools` s
   contradicting the code.
 - Version bumped to `0.2.0` with `npm version minor` after merge, and the tag pushed.
 
-## Stage 1 — Coverage baseline 🔨 (`chore/coverage`)
+## Stage 1 — Coverage baseline ✅ (PR #15)
 
 - Add `@vitest/coverage-v8` (dev only) and a `test:coverage` script. Set thresholds in
   `vitest.config.js` at **today's measured** figures, rounded down, and raise them each stage
@@ -73,7 +73,7 @@ Bring the repo up to `~/coding/CLAUDE.md` and the `krashen` / `dreaming-tools` s
 - **Every later stage** raises the `vitest.config.js` minimums to its new measurement in its
   final commit.
 
-## Stage 2 — Model registry ⬜ (`feature/model-registry`)
+## Stage 2 — Model registry 🔨 (`feature/model-registry`, ready for review)
 
 ### Scope
 Make model churn a one-line change plus a test.
@@ -108,6 +108,16 @@ Make model churn a one-line change plus a test.
 
 ### Docs
 DECISIONS entry; SPEC §5 and §7; CLAUDE.md model rule.
+
+### Outcome (2026-11-24)
+- The model check found `gpt-realtime-2.1` current and **`gpt-4o-transcribe` deprecated
+  (shutdown 2027-02-26) with no documented drop-in replacement** for this session type. The
+  defaults stay unchanged. The registry, Settings overrides and a 30-day shutdown tripwire make
+  the eventual switch a one-line change, and the decision is in `TODO.md`.
+- Added beyond the plan: `KNOWN_SHUTDOWNS` plus the tripwire test; the transcription-failure path
+  in the rejection handling; and a fix for a latent shared-reference bug in
+  `Config` defaults (`freshDefaults()`).
+- Coverage minimums raised: global 36/79/43/36, `js/realtime/` 95/88/84/95.
 
 ## Stage 3 — Voice A/B and prompt ⏸ (dialect answer needed)
 
@@ -155,7 +165,9 @@ DECISIONS entry; SPEC §5 and §7; CLAUDE.md model rule.
 
 ## Stage 7 — TTS evaluation and decision ⬜
 
-Compare three options:
+Compare these options. **Add `gpt-live-1.1`** (a full-duplex voice model on the separate Live
+API), found during Stage 2. Its page claims more consistent accent and voice and more accurate
+transcription, and it is also one route off the deprecated transcription model (`TODO.md`):
 - the native Realtime voices, in live sessions;
 - OpenAI's standalone TTS API, as a fixed-text proxy;
 - the external provider, through the Stage 6 spike.

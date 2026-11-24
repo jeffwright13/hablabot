@@ -8,7 +8,7 @@ build step and no framework.
 
 - **AI Conversation Partner**: Practice Spanish with María over a live, real-time voice
   conversation, powered by the OpenAI Realtime API (`gpt-realtime-2.1`) — not a text chatbot
-  with text-to-speech bolted on. Speech recognition (Whisper) and turn-taking (server-side
+  with text-to-speech bolted on. Speech recognition (OpenAI's transcription model) and turn-taking (server-side
   voice activity detection) both happen server-side; there's no push-to-talk button, you just
   talk and María responds when you pause.
 - **16 Conversation Scenarios**: Restaurant, travel, shopping, family, work, health, emergency,
@@ -117,6 +117,10 @@ during the conversation itself; just talk naturally and pause when you're done s
 - Speech rate (0.5x-1.5x, matching the Realtime API's own supported range)
 - Volume
 
+**Advanced: AI Models**
+- Conversation and transcription model IDs. Leave blank to use the defaults. Use this to try a
+  replacement when OpenAI retires a model (see `docs/SPEC.md`, AI Models)
+
 ### Browser Permissions
 
 - **Microphone**: required for the conversation feature
@@ -139,10 +143,10 @@ during the conversation itself; just talk naturally and pause when you're done s
 
 - **Frontend**: Pure HTML5/CSS3/JavaScript ES6+, no framework, no build step
 - **Conversation**: OpenAI Realtime API over WebRTC (`js/realtime/session.js`) — real-time voice
-  in both directions, server-side speech-to-text (Whisper) and voice activity detection. The
-  older Web Speech API browser-recognition path and a separate GPT-4 chat-completions engine
-  both still exist on disk (`js/speech/`, `js/ai/conversation.js`) but are dead code, not loaded
-  by `index.html` — kept for reference, not in the live path.
+  in both directions, server-side speech-to-text and voice activity detection. Model IDs live in
+  one registry (`js/utils/models.js`) and can be overridden in Settings → Advanced. The older Web
+  Speech API browser-recognition path still exists on disk (`js/speech/`) but is dead code, not
+  loaded by `index.html`.
 - **Storage**: IndexedDB for vocabulary/sessions/history, localStorage for settings and the API
   key
 - **PWA**: Service worker (`sw.js`) for offline asset caching (network-first, falling back to
@@ -177,7 +181,6 @@ hablabot/
 │   │   └── turn-profiles.js         # Per-difficulty pause-tolerance tuning
 │   ├── ai/
 │   │   ├── prompts.js         # Scenario/difficulty system prompts
-│   │   └── conversation.js    # Dead code (pre-Realtime-API chat-completions engine)
 │   ├── speech/                # Dead code (pre-Realtime-API Web Speech API path)
 │   ├── vocabulary/
 │   │   └── manager.js         # Vocabulary CRUD, CSV import/export, session word selection

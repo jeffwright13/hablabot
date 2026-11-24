@@ -7,14 +7,31 @@ import { dirname, join } from 'node:path';
 // contrast of at least 4.5:1 against what is behind it: the header gradient,
 // from --primary-color to --primary-dark. PR #14 review found the first
 // version (--gray-600 text) at 1.5–2.1:1. jsdom has no layout or CSS
-// cascade, so this reads css/main.css as text and does the WCAG math itself.
+// cascade, so this reads the CSS as text and does the WCAG math itself.
+//
+// Checked in BOTH color schemes: css/mobile.css's prefers-color-scheme: dark
+// block redefines variables (notably --white becomes #1a1a1a, a dark surface
+// color), and the first fix used var(--white) for the label text, which made
+// it near-black in dark mode (~2.7:1). Found in a browser check during
+// Stage 2; this test only read light-mode values at the time.
 const WCAG_AA_NORMAL_TEXT = 4.5;
 
-const css = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'css', 'main.css'), 'utf8');
+const cssDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'css');
+const css = readFileSync(join(cssDir, 'main.css'), 'utf8');
+const mobileCss = readFileSync(join(cssDir, 'mobile.css'), 'utf8');
 
-function cssVariable(name) {
-  const match = css.match(new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{6})`));
-  if (!match) throw new Error(`--${name} not found in main.css`);
+// Variable overrides inside mobile.css's dark-scheme :root block.
+const darkRoot = (() => {
+  const block = mobileCss.match(/@media \(prefers-color-scheme: dark\)\s*\{\s*:root\s*\{([^}]*)\}/);
+  if (!block) throw new Error('dark-scheme :root block not found in mobile.css');
+  return block[1];
+})();
+
+function cssVariable(name, scheme = 'light') {
+  const pattern = new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{6})`);
+  const dark = scheme === 'dark' ? darkRoot.match(pattern) : null;
+  const match = dark || css.match(pattern);
+  if (!match) throw new Error(`--${name} not found`);
   return match[1];
 }
 
@@ -46,9 +63,9 @@ function composite([r, g, b, alpha], under) {
   return [r, g, b].map((v, i) => Math.round(alpha * v + (1 - alpha) * under[i]));
 }
 
-function parseColor(value) {
+function parseColor(value, scheme) {
   const varRef = value.match(/var\(--([\w-]+)\)/);
-  if (varRef) return [...toRgb(cssVariable(varRef[1])), 1];
+  if (varRef) return [...toRgb(cssVariable(varRef[1], scheme)), 1];
   const rgba = value.match(/rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)/);
   if (rgba) return rgba.slice(1).map(Number);
   if (/^#[0-9a-fA-F]{6}$/.test(value)) return [...toRgb(value), 1];
@@ -62,16 +79,17 @@ function declaration(body, property) {
 
 describe('header version label contrast', () => {
   const label = ruleBody('.app-version');
-  const gradientStops = [cssVariable('primary-color'), cssVariable('primary-dark')].map(toRgb);
 
   it.each([
-    ['lighter', 0],
-    ['darker', 1],
-  ])('meets WCAG AA (4.5:1) against the %s end of the header gradient', (_name, stop) => {
-    const headerColor = gradientStops[stop];
+    ['light', 'lighter', 'primary-color'],
+    ['light', 'darker', 'primary-dark'],
+    ['dark', 'lighter', 'primary-color'],
+    ['dark', 'darker', 'primary-dark'],
+  ])('meets WCAG AA (4.5:1) in the %s scheme against the %s end of the header gradient', (scheme, _end, stopVar) => {
+    const headerColor = toRgb(cssVariable(stopVar, scheme));
     const background = declaration(label, 'background-color');
-    const behindText = background ? composite(parseColor(background), headerColor) : headerColor;
-    const text = composite(parseColor(declaration(label, 'color')), behindText);
+    const behindText = background ? composite(parseColor(background, scheme), headerColor) : headerColor;
+    const text = composite(parseColor(declaration(label, 'color'), scheme), behindText);
 
     expect(contrastRatio(text, behindText)).toBeGreaterThanOrEqual(WCAG_AA_NORMAL_TEXT);
   });

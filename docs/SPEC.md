@@ -110,8 +110,11 @@ mix Spain and Mexico. No accent or dialect is pinned.
 
 - Done server-side by the transcription model set in `session.update`
   (`audio.input.transcription`), with `language: 'es'`.
+- The transcription model comes from the registry (§7). It is currently `gpt-4o-transcribe`, which
+  is deprecated.
 - A failed transcription (`conversation.item.input_audio_transcription.failed`) is logged to the
-  console only. Nothing is shown to the learner.
+  console only. The exception is a failure that names the transcription model, which means every
+  turn will fail: that one is shown to the learner once per connection (§7, Error handling).
 
 ## 5. Settings
 
@@ -124,6 +127,7 @@ on load.
 | `realtimeVoice` | Settings → AI Voice | Yes |
 | `speechRate` | Settings → Speech Rate | Yes (as speed) |
 | `speechVolume` | Settings → Volume | Yes |
+| `models` (`{ realtime, transcription }`) | Settings → Advanced: AI Models. Blank means the registry default (§7) | Yes |
 | `elevenLabsApiKey`, `enableElevenLabs`, `speechLanguage`, `speechPitch`, `voiceIndex`, `apiTimeout`, `maxRetries`, `dataRetentionDays`, `conversationLogging`, `speechConfidenceThreshold`, `sessionLength`, `difficultyLevel`, `theme`, `language`, `enableOfflineMode`, `enableAnalytics` | None | **No.** These are leftovers, and `PLAN.md` Stage 5 removes them. |
 
 The API key is saved only when **Test** succeeds.
@@ -137,20 +141,51 @@ The API key is saved only when **Test** succeeds.
 
 ## 7. AI Models
 
-Every model ID the app sends. **These change often.** Before any model-related work, check the
-provider's deprecations page and update this table, including the date checked.
+Every model ID the app sends lives in **one place**, `js/utils/models.js` (`HablaBotModels`).
+**These change often.** Before any model-related work, re-read OpenAI's models and deprecations
+pages (`developers.openai.com/api/docs/models`, `/api/docs/deprecations`), then update this table,
+the registry's `MODELS_LAST_CHECKED`, and the tests.
 
-| Role | Model ID | Where it's set today | Last checked against provider docs |
+| Role | Default ID | Status at last check | Last checked |
 |---|---|---|---|
-| Realtime conversation (speech-to-speech) | `gpt-realtime-2.1` | Hardcoded in `session.js` `connect()` (`app.js` never passes `options.model`) | 2026-07-22 (`DECISIONS.md`) |
-| Input transcription | `gpt-4o-transcribe` | Hardcoded in `session.js` `session.update` | 2026-07-22 (`DECISIONS.md`) |
-| (orphaned) chat completions | `gpt-4` | `js/ai/conversation.js`, never called | n/a, to be deleted |
+| `realtime`: speech-to-speech conversation (`/v1/realtime/calls`, WebRTC) | `gpt-realtime-2.1` | Current; not deprecated | 2026-11-24 |
+| `transcription`: user-speech transcription inside that session (`audio.input.transcription`) | `gpt-4o-transcribe` | **Deprecated: shutdown 2027-02-26** (notice 2026-08-26) | 2026-11-24 |
 
-Context: OpenAI announced on 2026-10-14 that GPT-4o, GPT-4o mini, GPT-4.1 and GPT-4.1 mini will
-be removed from the API on 2027-01-14 (recorded in `krashen`'s DECISIONS, 2026-10-15). Whether
-that affects `gpt-4o-transcribe` has **not been checked**. `PLAN.md` Stage 2 checks it and moves
-every ID into a single registry module, with Settings overrides and migration of retired IDs
-when settings load.
+### How the IDs are chosen
+- `resolveModels(config.models)` returns the ID for each role, which `app.js` passes to
+  `RealtimeSession.connect({ model, transcriptionModel })`. A Settings override wins when it is a
+  non-blank string. Unknown IDs pass through unchanged, so a new model can be tried from Settings
+  before the registry knows about it. `session.js` contains no IDs and falls back to the registry
+  defaults if a caller passes none.
+- **Retired IDs** (`RETIRED_MODELS`, an explicit list from the deprecations page) are replaced with
+  their documented replacement, both when resolving and when settings load. On load the fix is
+  saved straight back to `localStorage` (`Config.migrateRetiredModels()`). Covered today: the
+  `gpt-4o-realtime-preview` family (shut down 2026-05-07), `gpt-realtime-mini-2025-10-06` (shut
+  down 2026-07-23), and `gpt-realtime`, `gpt-realtime-2025-08-28`, `gpt-4o-realtime` and the
+  `gpt-realtime-mini` variants (shutdown 2027-01-20). Mini models map to `gpt-realtime-2.1-mini`,
+  the rest to `gpt-realtime-2.1`.
+- **Shutdown tripwire:** `KNOWN_SHUTDOWNS` records announced dates for default models.
+  `tests/models.test.js` fails, on every branch, once a default is within 30 days of its
+  shutdown (for `gpt-4o-transcribe`, from 2027-01-27). Settings → Advanced also shows the date.
+
+### Error handling
+OpenAI doesn't document the error for a missing or retired model (checked 2026-11-24). An error
+is treated as a model rejection when its `param` names that role's field, or its message quotes
+the model ID. The learner then sees "<Role> model "<id>" was rejected by OpenAI (it may have been
+retired or renamed): <OpenAI's message> Change it in Settings → Advanced." This covers the token
+request, server `error` events, and transcription failures, which are reported once per
+connection. Other errors are unchanged. **Not yet confirmed against a real rejection**; record
+the real shape in DECISIONS when one is seen.
+
+### The transcription replacement is an open decision
+OpenAI names `gpt-live-transcribe` or `gpt-transcribe` as replacements, but per their model pages
+neither works as a drop-in for this app's session:
+- `gpt-transcribe` works in a Realtime session only over WebSocket, with manual turn commits.
+- `gpt-live-transcribe` and `gpt-realtime-whisper` work only in transcription-only sessions, and
+  `gpt-live-transcribe` doesn't support server VAD.
+
+`gpt-live-1.1` (a "full-duplex voice model for multilingual conversations") uses a different API,
+`/v1/live/sessions`. See `TODO.md`.
 
 ## 8. Offline / PWA
 

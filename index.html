@@ -269,6 +269,19 @@
                             <span id="speech-volume-value">80%</span>
                         </div>
                     </div>
+
+                    <div class="settings-group">
+                        <h3>Advanced: AI Models</h3>
+                        <div class="setting-item">
+                            <label for="realtime-model">Conversation model:</label>
+                            <input type="text" id="realtime-model" autocomplete="off" spellcheck="false">
+                        </div>
+                        <div class="setting-item">
+                            <label for="transcription-model">Transcription model:</label>
+                            <input type="text" id="transcription-model" autocomplete="off" spellcheck="false">
+                        </div>
+                        <p id="model-settings-note" class="setting-note"></p>
+                    </div>
                     
                 </div>
             </section>
@@ -300,6 +313,7 @@
     </div>
 
     <!-- JavaScript Modules -->
+    <script src="js/utils/models.js"></script>
     <script src="js/utils/config.js"></script>
     <script src="js/utils/version.js"></script>
     <script src="js/utils/helpers.js"></script>
@@ -307,12 +321,12 @@
     <script src="js/storage/database.js"></script>
     <script src="js/ui/state.js"></script>
     <script src="js/ui/components.js"></script>
+    <script src="js/ui/model-settings.js"></script>
     <!-- speech/recognition.js and speech/synthesis.js replaced by realtime/session.js -->
     <script src="js/realtime/session.js"></script>
     <script src="js/realtime/session-vocab-bridge.js"></script>
     <script src="js/realtime/turn-profiles.js"></script>
     <script src="js/ai/prompts.js"></script>
-    <script src="js/ai/conversation.js"></script>
     <script src="js/vocabulary/manager.js"></script>
     <script src="js/utils/audio.js"></script>
     <script src="js/app.js"></script>

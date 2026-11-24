@@ -19,7 +19,10 @@
 // js/ai/conversation.js, which index.html loads and app.js init()s but which
 // was never precached -- offline startup threw on the missing global. Found by
 // tests/sw-precache.test.js.
-const CACHE_NAME = 'hablabot-v4';
+//
+// v4 -> v5: precache js/utils/models.js and js/ui/model-settings.js (model
+// registry, PLAN Stage 2); drop js/ai/conversation.js, which was deleted.
+const CACHE_NAME = 'hablabot-v5';
 const STATIC_CACHE_URLS = [
   './',
   './index.html',
@@ -29,7 +32,6 @@ const STATIC_CACHE_URLS = [
   './css/mobile.css',
   './css/animations.css',
   './js/app.js',
-  './js/ai/conversation.js',
   './js/ai/prompts.js',
   './js/realtime/session.js',
   './js/realtime/session-vocab-bridge.js',
@@ -37,10 +39,12 @@ const STATIC_CACHE_URLS = [
   './js/vocabulary/manager.js',
   './js/storage/database.js',
   './js/ui/components.js',
+  './js/ui/model-settings.js',
   './js/ui/state.js',
   './js/utils/audio.js',
   './js/utils/config.js',
   './js/utils/helpers.js',
+  './js/utils/models.js',
   './js/utils/user-manager.js',
   './js/utils/version.js'
 ];

@@ -77,12 +77,17 @@ every time.
 OpenAI's supported models and Realtime API shapes change often. GPT-4o and 4.1 retire on
 2027-01-14; the Realtime schema changed once already, in July 2026.
 
-- **Never hardcode a model ID outside the model registry.** The registry is planned in PLAN
-  Stage 2. Until it lands, the IDs live only where `docs/SPEC.md` §7 says.
+- **Never hardcode a model ID outside `js/utils/models.js`** (`HablaBotModels`). Add a role to
+  `DEFAULT_MODELS` and resolve it with `resolveModels(config.get('models'))`. `session.js` takes
+  IDs as options and contains none.
+- When a model is deprecated: add its shutdown to `KNOWN_SHUTDOWNS` (this arms the 30-day
+  tripwire test). When it retires: add it to `RETIRED_MODELS` with its documented replacement,
+  so saved Settings overrides migrate on load. **Never silence the tripwire.** Pick, live-test
+  and switch to a replacement instead.
 - Before any model-related change, **read the provider's current models and deprecations
   pages**, then update the SPEC §7 table and its "last checked" date.
-- Stored settings override defaults, so when a model retires, also migrate stored IDs when
-  settings load (`krashen`'s `migrateRetiredModels()` in `js/storage.js` is the pattern).
+- Stored settings override defaults. That's why `Config.load()` migrates retired IDs and saves
+  the fix (the `krashen` `migrateRetiredModels()` pattern).
 - Treat the provider's docs as possibly stale: confirm wire-level changes with a live test, and
   record in DECISIONS what was confirmed and how.
 
@@ -108,25 +113,27 @@ SemVer per `~/coding/CLAUDE.md`. The version lives in `package.json` and changes
 
 ### Script loading order (`index.html`): dependency order matters
 
-1. `js/utils/config.js` → `window.HablaBotConfig`
-2. `js/utils/version.js` → `window.HablaBotVersion`
-3. `js/utils/helpers.js` → `window.H` (DOM helpers: `H.$()`, `H.show()`, `H.hide()`, `H.showToast()`, `H.escapeHtml()`)
-4. `js/utils/user-manager.js` → `window.HablaBotUserManager`
-5. `js/storage/database.js` → `window.HablaBotDB`
-6. `js/ui/state.js` → `window.HablaBotUIState`
-7. `js/ui/components.js` → `window.HablaBotComponents`
-8. `js/realtime/session.js` → `window.HablaBotRealtimeSession`
-9. `js/realtime/session-vocab-bridge.js` → `window.HablaBotSessionVocabBridge`
-10. `js/realtime/turn-profiles.js` → `window.HablaBotTurnProfiles`
-11. `js/ai/prompts.js` → `window.HablaBotPrompts`
-12. `js/ai/conversation.js` → `window.HablaBotConversation`. **Orphaned:** `init()`'d but never
-    called; to be deleted in PLAN Stage 2.
-13. `js/vocabulary/manager.js` → `window.HablaBotVocabulary`
-14. `js/utils/audio.js` → `window.HablaBotAudio`. **Unused**; to be deleted in PLAN Stage 5.
-15. `js/app.js` → `window.HablaBotApp` (main controller, initialized on DOMContentLoaded)
+1. `js/utils/models.js` → `window.HablaBotModels` (the model registry; must come before config,
+   which uses it while loading)
+2. `js/utils/config.js` → `window.HablaBotConfig`
+3. `js/utils/version.js` → `window.HablaBotVersion`
+4. `js/utils/helpers.js` → `window.H` (DOM helpers: `H.$()`, `H.show()`, `H.hide()`, `H.showToast()`, `H.escapeHtml()`)
+5. `js/utils/user-manager.js` → `window.HablaBotUserManager`
+6. `js/storage/database.js` → `window.HablaBotDB`
+7. `js/ui/state.js` → `window.HablaBotUIState`
+8. `js/ui/components.js` → `window.HablaBotComponents`
+9. `js/ui/model-settings.js` → `window.HablaBotModelSettings` (Settings → Advanced model overrides)
+10. `js/realtime/session.js` → `window.HablaBotRealtimeSession`
+11. `js/realtime/session-vocab-bridge.js` → `window.HablaBotSessionVocabBridge`
+12. `js/realtime/turn-profiles.js` → `window.HablaBotTurnProfiles`
+13. `js/ai/prompts.js` → `window.HablaBotPrompts`
+14. `js/vocabulary/manager.js` → `window.HablaBotVocabulary`
+15. `js/utils/audio.js` → `window.HablaBotAudio`. **Unused**; to be deleted in PLAN Stage 5.
+16. `js/app.js` → `window.HablaBotApp` (main controller, initialized on DOMContentLoaded)
 
 `js/speech/recognition.js` and `js/speech/synthesis.js` are on disk but not loaded; this is dead
-code. `js/vocabulary/spaced-repetition.js` was deleted on 2026-07-23 (SM-2 removed).
+code. Deleted: `js/vocabulary/spaced-repetition.js` (2026-07-23, SM-2 removed) and
+`js/ai/conversation.js` (2026-11-24, the orphaned GPT-4 chat engine).
 
 ### Key patterns
 
@@ -141,7 +148,7 @@ code. `js/vocabulary/spaced-repetition.js` was deleted on 2026-07-23 (SM-2 remov
 Turn-taking is managed entirely by the server (Realtime API server-side VAD).
 `HablaBotApp.beginUserTurn()` is a deliberate no-op that records this.
 
-1. `startConversation()` selects up to 5 target words
+1. `startConversation()` resolves the model IDs (`HablaBotModels.resolveModels`), selects up to 5 target words
    (`vocabularyManager.selectWordsForSession({ difficulty, scenario })`), builds the prompt
    (`HablaBotPrompts.generateSystemPrompt`), and calls `HablaBotRealtimeSession.connect()` with
    the voice, speed, volume and per-difficulty `turnDetection`

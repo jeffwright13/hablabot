@@ -52,6 +52,8 @@ Current coverage, by module:
 | `js/ai/prompts.js` | `prompts.test.js` | |
 | `js/utils/config.js` | `config.test.js` | |
 | `js/utils/version.js` | `version.test.js` | |
+| `js/utils/models.js` | `models.test.js` | registry, retired-ID migration, and a **shutdown tripwire** that fails 30 days before a default model's announced shutdown |
+| `js/ui/model-settings.js` | `model-settings.test.js` | Settings → Advanced model overrides |
 | `sw.js` ↔ `index.html` | `sw-precache.test.js` | precache list must match the loaded scripts; reads both as text |
 | `css/main.css` `.app-version` | `version-label-contrast.test.js` | WCAG AA contrast against both header gradient stops; reads the CSS as text |
 | `js/app.js` | **none** | harness planned (`PLAN.md`, Stage 5) |
@@ -72,11 +74,11 @@ branches and 90% everything else.
 
 | Scope | Statements | Branches | Functions | Lines | Set |
 |---|---|---|---|---|---|
-| All shipped `js/**` (excluding the unloaded `js/speech/`) | 30 | 78 | 35 | 30 | 2026-11-24 baseline: 30 / 78.37 / 35.82 / 30 |
-| `js/realtime/**` | 94 | 87 | 83 | 94 | 2026-11-24 baseline: 94.53 / 87.06 / 83.33 / 94.53 |
+| All shipped `js/**` (excluding the unloaded `js/speech/`) | 36 | 79 | 43 | 36 | Stage 2 (2026-11-24): 36.03 / 79.66 / 43.05 / 36.03. Baseline was 30 / 78.37 / 35.82 / 30 |
+| `js/realtime/**` | 95 | 88 | 84 | 95 | Stage 2 (2026-11-24): 95.4 / 88.02 / 84.61 / 95.4. Baseline was 94.53 / 87.06 / 83.33 / 94.53 |
 
 The global numbers are low because `app.js`, `database.js`, `user-manager.js`, `js/ui/*` and the
-dead `conversation.js`/`audio.js` have no tests. Branch coverage looks high only because untested
+dead `audio.js` have no tests. Branch coverage looks high only because untested
 files contribute few counted branches. The separate `js/realtime/**` floor exists because, in a
 global average dominated by untested files, a real regression in the core conversation path would
 barely move the totals. Vitest checks a glob floor against the **combined** figure for every
@@ -105,11 +107,18 @@ before.
 - [ ] User and AI transcripts each appear exactly once, with the correct speaker.
 - [ ] Barge-in: talking over the tutor stops its audio.
 - [ ] Voice, speech rate and volume settings apply to the next session.
+- [ ] Settings → Advanced: the placeholders show the default model IDs, and the note shows the
+      last-checked date and any shutdown date. An override persists across a reload. A bogus
+      override (e.g. `gpt-does-not-exist`) gives the named-model error pointing to Settings, not a
+      generic "Connection error". Clear it afterwards.
 - [ ] End Session saves: DevTools → IndexedDB → `sessions` has the transcript and `wordsUsed`.
 - [ ] The timer reaching zero ends and saves the session.
 - [ ] A wrong API key gives a clear error and moves you to Settings.
 - [ ] Firefox: run past 60 s. If it reconnects, the conversation continues without a re-greeting.
 - [ ] The console shows no errors except expected diagnostics.
+- [ ] Check new or changed UI in **both** light and dark mode (DevTools → Rendering → Emulate
+      `prefers-color-scheme`). `css/mobile.css` redefines `--white` and the `--gray-*` variables in
+      dark mode, so they are theme surface colors, not literal colors.
 
 ### 3. Release checklist
 

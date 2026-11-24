@@ -47,6 +47,13 @@ class RealtimeSession {
     // real replies being byte-identical is effectively never going to happen.
     this._lastFinalAITranscript = null;
 
+    // Model IDs in use for the current connection (see _resolveModels), kept
+    // so server errors can be matched back to the model they reject.
+    this._models = null;
+    // A rejected transcription model fails every user turn; tell the user
+    // once per connection, not on every turn.
+    this._transcriptionModelErrorReported = false;
+
     // Internal
     this._autoGreet = true;
     this._sessionConfigured = false;
@@ -93,7 +100,10 @@ class RealtimeSession {
   }
 
   // Connect to the OpenAI Realtime API via WebRTC.
-  // options: { model, voice, instructions, autoGreet, turnDetection }
+  // options: { model, transcriptionModel, voice, speed, volume, instructions,
+  //            autoGreet, turnDetection }. model/transcriptionModel come from
+  //            HablaBotModels.resolveModels(); omitted, they fall back to the
+  //            registry defaults (js/utils/models.js). No IDs live here.
   // _isReconnect is internal — used by the auto-reconnect path in dc.onclose;
   // callers should never pass it.
   async connect(apiKey, options = {}, _isReconnect = false) {
@@ -110,6 +120,8 @@ class RealtimeSession {
     // starting a new one, even though the underlying session is technically new.
     this._autoGreet = _isReconnect ? false : (options.autoGreet !== false);
     this._sessionConfigured = false;
+    this._models = this._resolveModels(options);
+    this._transcriptionModelErrorReported = false;
 
     try {
       this._setStatus(_isReconnect ? 'reconnecting' : 'connecting');
@@ -124,7 +136,7 @@ class RealtimeSession {
         body: JSON.stringify({
           session: {
             type: 'realtime',
-            model: options.model || 'gpt-realtime-2.1',
+            model: this._models.realtime,
             audio: {
               output: { voice: options.voice || 'alloy', speed: this._clampSpeed(options.speed) }
             }
@@ -134,7 +146,10 @@ class RealtimeSession {
 
       if (!tokenRes.ok) {
         const err = await tokenRes.json().catch(() => ({}));
-        throw new Error(err.error?.message || `Session creation failed (${tokenRes.status})`);
+        const apiMessage = err.error?.message || `Session creation failed (${tokenRes.status})`;
+        throw new Error(
+          this._modelRejectionMessage('realtime', err.error, apiMessage) || apiMessage
+        );
       }
 
       const tokenData = await tokenRes.json();
@@ -241,6 +256,8 @@ class RealtimeSession {
         // developer specifically reported working. `language: 'es'` added
         // since this app is specifically for Spanish speech (accuracy
         // guidance per the API reference, not itself the null-transcript fix).
+        // The model ID itself now comes from js/utils/models.js (via
+        // this._models), not from here.
         this._send({
           type: 'session.update',
           session: {
@@ -249,7 +266,7 @@ class RealtimeSession {
             instructions: options.instructions || 'You are a helpful assistant.',
             audio: {
               input: {
-                transcription: { model: 'gpt-4o-transcribe', language: 'es' },
+                transcription: { model: this._models.transcription, language: 'es' },
                 // options.turnDetection lets callers vary pause tolerance (e.g.
                 // by difficulty level, see js/realtime/turn-profiles.js) —
                 // falls back to the original fixed values if not passed, so
@@ -464,6 +481,35 @@ class RealtimeSession {
     return Math.min(1.5, Math.max(0.25, speed));
   }
 
+  _resolveModels(options) {
+    const defaults = window.HablaBotModels.DEFAULT_MODELS;
+    return {
+      realtime: options.model || defaults.realtime,
+      transcription: options.transcriptionModel || defaults.transcription,
+    };
+  }
+
+  // OpenAI doesn't document the error returned for a missing or retired
+  // model (checked 2026-11-24). Treat an error as a model rejection when its
+  // `param` names that role's field, or its message quotes the model ID.
+  // Returns a user-facing message naming the model and where to change it,
+  // or null when the error isn't about that model.
+  _modelRejectionMessage(role, apiError, apiMessage) {
+    const model = this._models && this._models[role];
+    if (!model || !apiError) return null;
+
+    const param = typeof apiError.param === 'string' ? apiError.param : '';
+    const message = typeof apiError.message === 'string' ? apiError.message : '';
+    const paramMatches = role === 'transcription'
+      ? param.includes('transcription')
+      : param.includes('model') && !param.includes('transcription');
+    if (!paramMatches && !message.includes(model)) return null;
+
+    const label = role === 'transcription' ? 'Transcription' : 'Realtime';
+    return `${label} model "${model}" was rejected by OpenAI (it may have been retired or renamed): ` +
+      `${apiMessage} Change it in Settings → Advanced.`;
+  }
+
   _clampVolume(volume) {
     if (typeof volume !== 'number' || Number.isNaN(volume)) return 1.0;
     return Math.min(1, Math.max(0, volume));
@@ -535,9 +581,20 @@ class RealtimeSession {
       // outright (bad model name, unsupported language, etc.) with no other
       // signal. Every previous null-transcript investigation had no way to
       // see this even if it was the actual cause the whole time.
-      case 'conversation.item.input_audio_transcription.failed':
+      case 'conversation.item.input_audio_transcription.failed': {
         console.error('RealtimeSession: input audio transcription failed', JSON.stringify(msg.error || msg));
+        // Most failures are per-turn (e.g. unusable audio) and stay
+        // console-only. One that names the transcription model means every
+        // turn will fail, so tell the user, once per connection.
+        const rejection = this._modelRejectionMessage(
+          'transcription', msg.error, msg.error?.message || 'Transcription failed.'
+        );
+        if (rejection && !this._transcriptionModelErrorReported) {
+          this._transcriptionModelErrorReported = true;
+          if (this.onError) this.onError(rejection);
+        }
         break;
+      }
 
       case 'response.audio_transcript.delta':
       case 'response.output_audio_transcript.delta':
@@ -571,10 +628,16 @@ class RealtimeSession {
         }
         break;
 
-      case 'error':
+      case 'error': {
         console.error('RealtimeSession: API error', msg.error);
-        if (this.onError) this.onError(msg.error?.message || 'Realtime API error');
+        const apiMessage = msg.error?.message || 'Realtime API error';
+        const userMessage =
+          this._modelRejectionMessage('transcription', msg.error, apiMessage) ||
+          this._modelRejectionMessage('realtime', msg.error, apiMessage) ||
+          apiMessage;
+        if (this.onError) this.onError(userMessage);
         break;
+      }
     }
   }
 }

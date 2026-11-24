@@ -16,27 +16,28 @@ export default defineConfig({
       include: ['js/**/*.js'],
       exclude: ['js/speech/**'],
       reporter: ['text', 'html'],
-      // Ratchet, not a target: set to the measured baseline (rounded down) on
-      // 2026-11-24 and raised as each PLAN.md stage adds tests. The aim is
+      // Ratchet, not a target: set to the measured figures (rounded down) and
+      // raised as each PLAN.md stage adds tests. Last raised 2026-11-24
+      // (Stage 2) from global 30/78/35/30 and realtime 94/87/83/94. The aim is
       // dreaming-tools' 80/90/90/90. Never lower a number to get a commit
       // through; add the missing tests instead (see docs/TESTING.md).
       thresholds: {
-        statements: 30,
-        branches: 78,
-        functions: 35,
-        lines: 30,
+        statements: 36,
+        branches: 79,
+        functions: 43,
+        lines: 36,
         // The core conversation path is already well covered. A per-glob
         // floor stops a regression there from hiding behind the large,
         // untested files that dominate the global numbers. Vitest checks this
         // against the COMBINED figure for every file under js/realtime/
-        // (94.53 / 87.06 / 83.33 / 94.53 on 2026-11-24), not any one file's
+        // (95.4 / 88.02 / 84.61 / 95.4 after Stage 2), not any one file's
         // row in the report, so that combined figure is what gets rounded
         // down here.
         'js/realtime/**': {
-          statements: 94,
-          branches: 87,
-          functions: 83,
-          lines: 94,
+          statements: 95,
+          branches: 88,
+          functions: 84,
+          lines: 95,
         },
       },
     },
