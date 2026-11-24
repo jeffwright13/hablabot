@@ -12,6 +12,13 @@ Vocabulary practice (your own words, worked into conversation) has been **hidden
 still stored. To try it as-is, run `HablaBotConfig.set('vocabularyEnabled', true)` in the browser
 console and reload.
 
+## Feature requests (recorded 2026-11-24, scheduled in PLAN)
+
+- **Text input alongside voice:** PLAN Stage 11. Type or speak at any time in the same session
+  (11a), and later a text-only session with no microphone (11b).
+- **Performance feedback:** PLAN Stage 12. Opt-in reply speed and accuracy, for voice and text.
+- Also: listening mode (Stage 9) and dialect selection (Stage 10).
+
 ## Product questions (they block PLAN Stages 3 and 6)
 
 Asked during the 2026-11-24 architecture/TTS review. The dialect question was answered on

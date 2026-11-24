@@ -21,7 +21,9 @@ Updated 2026-11-24, after v0.4.0.
 4. **Stage 5:** data-loss fixes and cleanup. This also builds the `app.js` test harness, which
    Stage 8 needs.
 5. ⭐ **Stage 8: bring vocabulary practice back.** It's hidden, not abandoned; see below.
-6. **Stage 9:** listening mode. **Stage 10:** dialect selection.
+6. **User-requested features:** Stage 9 (listening mode), Stage 10 (dialect selection), Stage
+   11 (text input alongside voice), Stage 12 (performance feedback, opt-in). They're listed in
+   the order requested; the user sets the order.
 7. **Stages 6–7:** external TTS spike and evaluation, if the voice comparison and `gpt-live-1.1`
    don't settle voice quality.
 
@@ -271,6 +273,63 @@ Choose Spain, Argentina, Peru, Puerto Rico and others, not just Mexico.
 - **Caveat:** OpenAI's voices aren't regional, so accent quality varies by dialect and needs a
   native speaker's ear. This overlaps with Stage 7 (`gpt-live-1.1`'s claimed accent
   consistency).
+
+## Stage 11 — Text input alongside voice ⬜ (user request, 2026-11-24)
+
+**Why:** some learners are sometimes more comfortable typing than speaking. HablaBot stays
+speaking-first (BRIEF); typing is an always-available alternative, not a replacement.
+
+**What OpenAI's docs confirm** (Realtime conversations guide and client-events reference, read
+2026-11-24):
+- A typed user message can be added to the *live* voice session: `conversation.item.create`
+  with `{ type: 'message', role: 'user', content: [{ type: 'input_text', text }] }`, then
+  `response.create`.
+- With the session's audio output, the tutor answers aloud as usual. This is implied by the
+  guide rather than stated outright.
+- To interrupt a reply in progress over WebRTC, send `response.cancel`, then
+  `output_audio_buffer.clear`, which also truncates the conversation.
+
+**11a. Hybrid: type or speak at any time (do first).** A text box under the conversation, with
+the mic still live. There's no mode switch: the app knows which input was used from which one
+arrived. This is the "dynamically deduced" option, and the docs make it nearly free.
+- `session.js`: a new `sendText(text)` sends the two events above. If the tutor is speaking, it
+  sends `response.cancel` and `output_audio_buffer.clear` first.
+- `app.js`: show the typed message in the history right away, and save it in
+  `conversationHistory` with `input: 'typed'` (spoken turns get `input: 'spoken'`).
+- **Watch for:** the server echoes the typed item back (`conversation.item.added` / `.done`).
+  The current user-transcript handler only reads `transcript` fields, so it shouldn't duplicate
+  the message, but a test must prove it. If a later change makes it read `text`, deduplicate by
+  item ID.
+- Tests first: `sendText()` event shapes; cancel and clear only while the tutor is speaking;
+  blank input ignored; no duplicate history entry from the echoed item; the wiring is a
+  testable helper like `model-settings.js`.
+- Live check: typed and spoken turns mixed in one session; typing while the tutor talks cuts
+  her off cleanly.
+
+**11b. Text-only session, no microphone (later, needs a live test).** For learners who'd rather
+not grant mic permission, or who are somewhere they can't speak.
+- **Not documented:** every WebRTC example adds a mic track. The likely approach is a
+  receive-only audio transceiver (`pc.addTransceiver('audio', { direction: 'recvonly' })`) and
+  `turn_detection: null`, but that must be live-tested.
+- Chosen per session, like difficulty.
+
+## Stage 12 — Performance feedback, opt-in ⬜ (user idea, 2026-11-24)
+
+**Idea:** how quickly, and how accurately, the learner turns around replies, for both voice and
+text input.
+- **Speed (measurable):** response latency per turn, i.e. from the end of the tutor's speech to
+  the learner starting to speak, or to the first keystroke and submit; typing speed. This
+  reuses Stage 4's per-turn timestamps.
+- **Accuracy (needs a definition first):** something has to judge the learner's Spanish.
+  Candidates:
+  - a post-session review of the transcript by a text model, which costs money and sends the
+    transcript to OpenAI a second time (update PRIVACY);
+  - counting the tutor's recasts.
+
+  Pick and validate one before building anything.
+- **Caution:** visible scores can raise anxiety, which works against the low-pressure practice
+  HablaBot is for (BRIEF). So: **off by default, private, and shown as trends over sessions,
+  not grades.**
 
 ## Stage 6 — External TTS spike ⏸ (`experiment/external-tts`; key-handling answer needed)
 
