@@ -1,6 +1,6 @@
 {
   "name": "hablabot",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "AI-powered Spanish conversation practice with voice interaction",
   "type": "module",
   "scripts": {
