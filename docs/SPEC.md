@@ -29,9 +29,11 @@ same commit as the code that changes it. Reasoning goes in `DECISIONS.md`; plann
 - **Session length:** 5–30 minutes in steps of 5. A countdown and progress bar run during the
   session, and **the session ends and saves automatically when the countdown reaches zero**
   (`app.js` `startSessionTimer()`).
-- **Target words:** up to 5 words from the profile's vocabulary, filtered by difficulty
-  (beginner = levels 1–2, intermediate = 3–4, advanced = 4–5) and by scenario (category or
-  tag), then shuffled (`VocabularyManager.selectWordsForSession()`).
+- **Target words: none while vocabulary practice is hidden** (`vocabularyEnabled: false`, the
+  default; §6). With the flag on: up to 5 words from the profile's vocabulary, filtered by
+  difficulty (beginner = levels 1–2, intermediate = 3–4, advanced = 4–5) and by scenario
+  (category or tag), then shuffled (`VocabularyManager.selectWordsForSession()`). That
+  selection is buggy; see PLAN Stage 8.
 
 ### 2.2 System prompt
 `HablaBotPrompts.generateSystemPrompt(scenario, difficulty, targetWords)` joins six parts, in
@@ -146,17 +148,32 @@ on load.
 | `realtimeVoice` | Settings → AI Voice | Yes |
 | `speechRate` | Settings → Speech Rate | Yes (as speed) |
 | `speechVolume` | Settings → Volume | Yes |
+| `vocabularyEnabled` | None (feature flag; console only) | Yes: `false` hides vocabulary practice (§6) |
 | `models` (`{ realtime, transcription }`) | Settings → Advanced: AI Models. Blank means the registry default (§7) | Yes |
 | `elevenLabsApiKey`, `enableElevenLabs`, `speechLanguage`, `speechPitch`, `voiceIndex`, `apiTimeout`, `maxRetries`, `dataRetentionDays`, `conversationLogging`, `speechConfidenceThreshold`, `sessionLength`, `difficultyLevel`, `theme`, `language`, `enableOfflineMode`, `enableAnalytics` | None | **No.** These are leftovers, and `PLAN.md` Stage 5 removes them. |
 
 The API key is saved only when **Test** succeeds.
 
-## 6. Vocabulary
+## 6. Vocabulary (hidden; planned to return in PLAN Stage 8 ⭐)
 
-- Each profile has a plain word list: add, edit and delete; search; filter by category and
-  difficulty; CSV import and export (`js/vocabulary/manager.js`). There is no mastery tracking
-  and no scheduling (`DECISIONS.md`, 2026-07-23).
-- The list feeds the target-word selection described in 2.1.
+- **Hidden since 2026-11-24** behind `vocabularyEnabled` (default `false`, `js/utils/features.js`):
+  - the Vocabulary tab and view are hidden, and `switchView('vocabulary')` is a no-op;
+  - sessions get no target words, so there's no target-vocabulary prompt block and no word
+    tally.
+- **Kept:** all the code, and each profile's saved words in IndexedDB. Setting the flag to
+  `true` (console: `HablaBotConfig.set('vocabularyEnabled', true)`, then reload) restores the
+  previous behavior, bugs included.
+- **When enabled:** each profile has a plain word list with add, edit and delete, and CSV import
+  and export (`js/vocabulary/manager.js`). There is no mastery tracking or scheduling
+  (DECISIONS 2026-07-23). The list feeds the target-word selection in 2.1.
+- **Known bugs while enabled:**
+  - selection rarely matches a scenario;
+  - export downloads twice;
+  - an export doesn't survive re-import;
+  - switching profiles keeps the old list;
+  - search and filters are unwired.
+
+  PLAN Stage 8 has the details and the redesign.
 
 ## 7. AI Models
 

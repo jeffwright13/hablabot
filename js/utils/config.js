@@ -23,6 +23,10 @@ class Config {
       // model IDs live.
       models: { realtime: '', transcription: '' },
       
+      // Feature flags (js/utils/features.js). Vocabulary practice is hidden
+      // until it's rebuilt (docs/PLAN.md Stage 8); set true to try it as-is.
+      vocabularyEnabled: false,
+
       // Learning Preferences
       sessionLength: 15, // minutes
       difficultyLevel: 'beginner', // 'beginner', 'intermediate', 'advanced'

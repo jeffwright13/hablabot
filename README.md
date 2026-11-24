@@ -18,10 +18,11 @@ build step and no framework.
   each session (vocabulary complexity, phrasing, and pause tolerance all adjust accordingly).
   There's no attempt to adapt difficulty automatically mid-conversation; a 15-30 minute session
   is too short a timescale for that to mean anything.
-- **Vocabulary Manager**: Add words manually or import/export via CSV, with search and
-  category/difficulty filtering. This is a plain word list, not a spaced-repetition or flashcard
-  system — HablaBot deliberately doesn't try to be an SRS app (see `docs/DECISIONS.md` for why).
-  Target words from your list get woven into each session's conversation prompt.
+- **Vocabulary practice: temporarily hidden, coming back.** Your own words, worked into the
+  conversation. It's switched off while it's rebuilt, because the first version was unfinished
+  and buggy. Bringing it back is a planned near-to-mid-term stage (`docs/PLAN.md`, Stage 8).
+  Words you saved earlier are kept. It's deliberately a plain word list, not a spaced-repetition
+  app (see `docs/DECISIONS.md`).
 - **Progressive Web App**: Installable, works offline for cached pages (no network requests are
   needed until you actually start a conversation, which requires the OpenAI API).
 - **Local-First**: Your vocabulary, settings, and API key are stored in your browser
@@ -95,14 +96,11 @@ Turn-taking is fully automatic — the app shows a listening indicator while you
 a processing indicator while María is composing a response. There's no button to hold or click
 during the conversation itself; just talk naturally and pause when you're done speaking.
 
-### Managing Vocabulary
+### Vocabulary (hidden for now)
 
-1. **Add Words**: Vocabulary tab → "Add New Word"
-2. **Import/Export CSV**: bulk-import a word list, or export your current list (e.g., to bring
-   into a spreadsheet or another tool)
-3. **Search & Filter**: by category or difficulty
-4. Words in your list are eligible to be woven into future conversation sessions, matched to the
-   session's chosen difficulty and scenario
+The Vocabulary tab is hidden until vocabulary practice is rebuilt (`docs/PLAN.md`, Stage 8). To
+try the old version anyway, bugs included, run `HablaBotConfig.set('vocabularyEnabled', true)`
+in the browser console and reload.
 
 ## Configuration
 

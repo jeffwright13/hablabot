@@ -287,6 +287,11 @@ class HablaBotApp {
 
   // Switch between app views
   switchView(viewName) {
+    // Vocabulary practice is hidden (js/utils/features.js); its tab is gone,
+    // and this guards any other route to the view.
+    if (viewName === 'vocabulary' && !window.HablaBotFeatures.isVocabularyEnabled(this.config)) {
+      return;
+    }
     console.log('Switching to view:', viewName); // ADD THIS LINE
     // Hide current view
     const currentViewElement = H.$(`.view.active`);
@@ -374,10 +379,13 @@ class HablaBotApp {
       const sessionLength = parseInt(this.elements.sessionLengthSlider.value);
       const difficulty = this.elements.difficultySelect.value;
 
-      // Select target vocabulary for this session (due-for-review + new words,
-      // scoped to difficulty/scenario) so it actually reaches the system prompt
-      // and the live-conversation tracker below.
-      const targetWords = this.vocabularyManager.selectWordsForSession({ difficulty, scenario });
+      // Target words from the profile's vocabulary list, scoped to
+      // difficulty/scenario. Empty while vocabulary practice is hidden
+      // (js/utils/features.js), so the prompt gets no target-word block and
+      // the session tally stays empty.
+      const targetWords = window.HablaBotFeatures.selectTargetWords(
+        this.config, this.vocabularyManager, { difficulty, scenario }
+      );
       this.vocabBridge.reset();
 
       // Create new session
@@ -810,6 +818,9 @@ class HablaBotApp {
 
   // Initialize UI
   initializeUI() {
+    // Hide features that are switched off before anything is shown.
+    window.HablaBotFeatures.applyFeatureVisibility(this.config, this.elements);
+
     // Set initial view
     this.switchView('conversation');
     

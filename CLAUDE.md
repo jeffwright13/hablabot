@@ -117,19 +117,21 @@ SemVer per `~/coding/CLAUDE.md`. The version lives in `package.json` and changes
    which uses it while loading)
 2. `js/utils/config.js` → `window.HablaBotConfig`
 3. `js/utils/version.js` → `window.HablaBotVersion`
-4. `js/utils/helpers.js` → `window.H` (DOM helpers: `H.$()`, `H.show()`, `H.hide()`, `H.showToast()`, `H.escapeHtml()`)
-5. `js/utils/user-manager.js` → `window.HablaBotUserManager`
-6. `js/storage/database.js` → `window.HablaBotDB`
-7. `js/ui/state.js` → `window.HablaBotUIState`
-8. `js/ui/components.js` → `window.HablaBotComponents`
-9. `js/ui/model-settings.js` → `window.HablaBotModelSettings` (Settings → Advanced model overrides)
-10. `js/realtime/session.js` → `window.HablaBotRealtimeSession`
-11. `js/realtime/session-vocab-bridge.js` → `window.HablaBotSessionVocabBridge`
-12. `js/realtime/turn-profiles.js` → `window.HablaBotTurnProfiles`
-13. `js/ai/prompts.js` → `window.HablaBotPrompts`
-14. `js/vocabulary/manager.js` → `window.HablaBotVocabulary`
-15. `js/utils/audio.js` → `window.HablaBotAudio`. **Unused**; to be deleted in PLAN Stage 5.
-16. `js/app.js` → `window.HablaBotApp` (main controller, initialized on DOMContentLoaded)
+4. `js/utils/features.js` → `window.HablaBotFeatures` (feature flags; **vocabulary practice is
+   hidden** behind `vocabularyEnabled: false`, see PLAN Stage 8)
+5. `js/utils/helpers.js` → `window.H` (DOM helpers: `H.$()`, `H.show()`, `H.hide()`, `H.showToast()`, `H.escapeHtml()`)
+6. `js/utils/user-manager.js` → `window.HablaBotUserManager`
+7. `js/storage/database.js` → `window.HablaBotDB`
+8. `js/ui/state.js` → `window.HablaBotUIState`
+9. `js/ui/components.js` → `window.HablaBotComponents`
+10. `js/ui/model-settings.js` → `window.HablaBotModelSettings` (Settings → Advanced model overrides)
+11. `js/realtime/session.js` → `window.HablaBotRealtimeSession`
+12. `js/realtime/session-vocab-bridge.js` → `window.HablaBotSessionVocabBridge`
+13. `js/realtime/turn-profiles.js` → `window.HablaBotTurnProfiles`
+14. `js/ai/prompts.js` → `window.HablaBotPrompts`
+15. `js/vocabulary/manager.js` → `window.HablaBotVocabulary`
+16. `js/utils/audio.js` → `window.HablaBotAudio`. **Unused**; to be deleted in PLAN Stage 5.
+17. `js/app.js` → `window.HablaBotApp` (main controller, initialized on DOMContentLoaded)
 
 `js/speech/recognition.js` and `js/speech/synthesis.js` are on disk but not loaded; this is dead
 code. Deleted: `js/vocabulary/spaced-repetition.js` (2026-07-23, SM-2 removed) and
