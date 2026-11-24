@@ -23,15 +23,25 @@ function selectTargetWords(config, vocabularyManager, options) {
   return isVocabularyEnabled(config) ? vocabularyManager.selectWordsForSession(options) : [];
 }
 
-// elements: { vocabularyBtn, vocabularyView } (either may be missing).
+// elements: { vocabularyBtn, vocabularyView, wordsPracticed } (any may be
+// missing). wordsPracticed is the session view's "0/5 words" counter.
 function applyFeatureVisibility(config, elements) {
   const vocabularyOn = isVocabularyEnabled(config);
   if (elements.vocabularyBtn) elements.vocabularyBtn.hidden = !vocabularyOn;
+  if (elements.wordsPracticed) elements.wordsPracticed.hidden = !vocabularyOn;
   // The view is shown only by switchView(); just make sure it's hidden when off.
   if (elements.vocabularyView && !vocabularyOn) elements.vocabularyView.hidden = true;
 }
 
-const HablaBotFeatures = { isVocabularyEnabled, selectTargetWords, applyFeatureVisibility };
+// "First time" for onboarding: no API key, or, only while vocabulary practice
+// is on, an empty word list. With vocabulary hidden, an empty list says
+// nothing about whether someone is new.
+function isFirstTimeUser(config, { hasApiKey, vocabCount }) {
+  if (!hasApiKey) return true;
+  return isVocabularyEnabled(config) && vocabCount === 0;
+}
+
+const HablaBotFeatures = { isVocabularyEnabled, selectTargetWords, applyFeatureVisibility, isFirstTimeUser };
 
 window.HablaBotFeatures = HablaBotFeatures;
 

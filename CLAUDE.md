@@ -150,8 +150,10 @@ code. Deleted: `js/vocabulary/spaced-repetition.js` (2026-07-23, SM-2 removed) a
 Turn-taking is managed entirely by the server (Realtime API server-side VAD).
 `HablaBotApp.beginUserTurn()` is a deliberate no-op that records this.
 
-1. `startConversation()` resolves the model IDs (`HablaBotModels.resolveModels`), selects up to 5 target words
-   (`vocabularyManager.selectWordsForSession({ difficulty, scenario })`), builds the prompt
+1. `startConversation()` resolves the model IDs (`HablaBotModels.resolveModels`), gets the target
+   words through `HablaBotFeatures.selectTargetWords()` (`[]` while vocabulary practice is hidden;
+   otherwise up to 5 from `vocabularyManager.selectWordsForSession({ difficulty, scenario })`),
+   builds the prompt
    (`HablaBotPrompts.generateSystemPrompt`), and calls `HablaBotRealtimeSession.connect()` with
    the voice, speed, volume and per-difficulty `turnDetection`
    (`HablaBotTurnProfiles.getTurnDetectionConfig`).

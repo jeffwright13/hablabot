@@ -241,7 +241,11 @@ words, worked into real conversation. All the code and every profile's saved wor
 4. **Switching profiles** re-opens the database but never reloads the in-memory word list.
 5. **The search box and the category/difficulty filters** in the Vocabulary tab aren't wired to
    anything. The logic exists in the manager and is tested.
-6. **Smaller issues:** the profile card's "N words" is always 0; editing a word skips the
+6. **The session view's "0/5 words" counter (`#words-practiced`) never updates.** The only code
+   that rewrites it (`UIState.startConversation()` / `updateSessionProgress()`) has no callers in
+   `app.js`. It's hidden while the flag is off (PR #19 review); wire it to
+   `vocabBridge.getWordsUsed()` when the feature returns.
+7. **Smaller issues:** the profile card's "N words" is always 0; editing a word skips the
    duplicate check.
 
 **Done when:** the feature is re-enabled (flag default `true`, or the flag removed), the bugs

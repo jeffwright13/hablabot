@@ -75,7 +75,7 @@ branches and 90% everything else.
 
 | Scope | Statements | Branches | Functions | Lines | Set |
 |---|---|---|---|---|---|
-| All shipped `js/**` (excluding the unloaded `js/speech/`) | 36 | 81 | 44 | 36 | Vocabulary flag (2026-11-24): 36.78 / 81.3 / 44.96 / 36.78. Baseline was 30 / 78.37 / 35.82 / 30 |
+| All shipped `js/**` (excluding the unloaded `js/speech/`) | 36 | 81 | 45 | 36 | Vocabulary flag (2026-11-24): 36.87 / 81.59 / 45.33 / 36.87. Baseline was 30 / 78.37 / 35.82 / 30 |
 | `js/realtime/**` | 95 | 88 | 84 | 95 | Stage 2 (2026-11-24): 95.42 / 88.27 / 84.61 / 95.42. Baseline was 94.53 / 87.06 / 83.33 / 94.53 |
 
 The global numbers are low because `app.js`, `database.js`, `user-manager.js`, `js/ui/*` and the

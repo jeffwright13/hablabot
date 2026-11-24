@@ -158,6 +158,8 @@ The API key is saved only when **Test** succeeds.
 
 - **Hidden since 2026-11-24** behind `vocabularyEnabled` (default `false`, `js/utils/features.js`):
   - the Vocabulary tab and view are hidden, and `switchView('vocabulary')` is a no-op;
+  - the session view's "0/5 words" counter is hidden (it never updated anyway; PLAN Stage 8);
+  - an empty word list no longer counts toward "first-time user" (`isFirstTimeUser()`);
   - sessions get no target words, so there's no target-vocabulary prompt block and no word
     tally.
 - **Kept:** all the code, and each profile's saved words in IndexedDB. Setting the flag to

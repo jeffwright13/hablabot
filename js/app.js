@@ -802,7 +802,7 @@ class HablaBotApp {
     const hasApiKey = this.config.hasApiKey();
     const vocabCount = await this.database.count('vocabulary');
     
-    this.isFirstTime = !hasApiKey || vocabCount === 0;
+    this.isFirstTime = window.HablaBotFeatures.isFirstTimeUser(this.config, { hasApiKey, vocabCount });
     
     if (this.isFirstTime) {
       // Show onboarding flow

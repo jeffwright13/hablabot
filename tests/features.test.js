@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import '../js/utils/models.js';
 import Config from '../js/utils/config.js';
-import { isVocabularyEnabled, selectTargetWords, applyFeatureVisibility } from '../js/utils/features.js';
+import { isVocabularyEnabled, selectTargetWords, applyFeatureVisibility, isFirstTimeUser } from '../js/utils/features.js';
 
 // Vocabulary practice is hidden behind a flag (DECISIONS 2026-11-24): it was
 // unfinished and buggy, and it's planned to come back (PLAN Stage 8). The
@@ -58,11 +58,26 @@ describe('applyFeatureVisibility', () => {
   beforeEach(() => {
     document.body.innerHTML = `
       <button id="vocabulary-btn"></button>
-      <section id="vocabulary-view"></section>`;
+      <section id="vocabulary-view"></section>
+      <span id="words-practiced">0/5 words</span>`;
     elements = {
       vocabularyBtn: document.getElementById('vocabulary-btn'),
       vocabularyView: document.getElementById('vocabulary-view'),
+      wordsPracticed: document.getElementById('words-practiced'),
     };
+  });
+
+  // PR #19 review: the session view's "0/5 words" counter pointed at the
+  // hidden feature (and never updates anyway; PLAN Stage 8).
+  it('hides the session words-practiced counter when the feature is off', () => {
+    applyFeatureVisibility(fakeConfig({ vocabularyEnabled: false }), elements);
+    expect(elements.wordsPracticed.hidden).toBe(true);
+  });
+
+  it('shows the words-practiced counter when the feature is on', () => {
+    elements.wordsPracticed.hidden = true;
+    applyFeatureVisibility(fakeConfig({ vocabularyEnabled: true }), elements);
+    expect(elements.wordsPracticed.hidden).toBe(false);
   });
 
   it('hides the Vocabulary tab and view when the feature is off', () => {
@@ -79,5 +94,23 @@ describe('applyFeatureVisibility', () => {
 
   it('tolerates missing elements', () => {
     expect(() => applyFeatureVisibility(fakeConfig({}), {})).not.toThrow();
+  });
+});
+
+// PR #19 review: "first time" used to mean "no API key OR an empty
+// vocabulary list", so with vocabulary hidden every user with a key would
+// look new to any future onboarding flow.
+describe('isFirstTimeUser', () => {
+  it('is a first-time user without an API key, whatever the vocabulary', () => {
+    expect(isFirstTimeUser(fakeConfig({ vocabularyEnabled: false }), { hasApiKey: false, vocabCount: 10 })).toBe(true);
+  });
+
+  it('ignores an empty vocabulary list while vocabulary practice is off', () => {
+    expect(isFirstTimeUser(fakeConfig({ vocabularyEnabled: false }), { hasApiKey: true, vocabCount: 0 })).toBe(false);
+  });
+
+  it('still counts an empty vocabulary list as first time while it is on', () => {
+    expect(isFirstTimeUser(fakeConfig({ vocabularyEnabled: true }), { hasApiKey: true, vocabCount: 0 })).toBe(true);
+    expect(isFirstTimeUser(fakeConfig({ vocabularyEnabled: true }), { hasApiKey: true, vocabCount: 3 })).toBe(false);
   });
 });

@@ -18,13 +18,13 @@ export default defineConfig({
       reporter: ['text', 'html'],
       // Ratchet, not a target: set to the measured figures (rounded down) and
       // raised as each PLAN.md stage adds tests. Last raised 2026-11-24
-      // (hide-vocabulary flag): global 36/80/43/36 -> 36/81/44/36. The aim is
+      // (hide-vocabulary flag, incl. PR #19 review): global 36/80/43/36 -> 36/81/45/36. The aim is
       // dreaming-tools' 80/90/90/90. Never lower a number to get a commit
       // through; add the missing tests instead (see docs/TESTING.md).
       thresholds: {
         statements: 36,
         branches: 81,
-        functions: 44,
+        functions: 45,
         lines: 36,
         // The core conversation path is already well covered. A per-glob
         // floor stops a regression there from hiding behind the large,
