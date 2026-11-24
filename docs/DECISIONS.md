@@ -808,3 +808,23 @@ this conversation changed.
 in `app.js` at session start, not from `Config` — meaning these two stored defaults are vestigial in
 the same way `correctionFrequency`/`newWordsPerSession` were, just not raised in today's conversation.
 Not touched here to keep this change scoped to what was actually discussed.
+
+---
+
+_From here on, entries use the Decision / Rationale / Verified format from `~/coding/krashen` (see
+`CLAUDE.md`). They are still appended at the bottom; earlier entries are left as written._
+
+## 2026-11-24 — Adopted the krashen / dreaming-tools documentation set; archived the original spec
+**Decision:** Added `docs/BRIEF.md` (stable), `docs/SPEC.md` (living, describing behavior as of today, with a §7 AI model table), `docs/PLAN.md` (the staged plan from the 2026-11-24 architecture/TTS review), `docs/TESTING.md`, `docs/TODO.md`, and a root `PRIVACY.md`. Moved `Requirements and Implemetation.md` to `docs/archive/requirements-and-implementation-2025-09.md` with a "superseded" banner. Rewrote `CLAUDE.md` to fix drift (script order, the removed SM-2 module, the stale `gpt-4o-realtime-preview` model name) and to add the docs map, TDD rules, the model-churn rule and this entry format. Corrected the README's claim that the session length is "informational": `startSessionTimer()` ends and saves the session at zero.
+**Rationale:** The user asked for hablabot to match `~/coding/CLAUDE.md` and the newer sibling repos. Before this, the only design doc was this log, and the root spec described an architecture (Web Speech API, GPT-4, an ElevenLabs fallback, SM-2) that no longer exists, so it read as current when it wasn't. The spec was archived rather than deleted so the original intent stays traceable. The still-valid parts (static hosting, bring-your-own key, local-only data) moved into BRIEF. The format change applies only to new entries; rewriting old ones would break the append-only rule.
+**Verified:** Doc-only apart from the items in the next two entries. Each SPEC claim was checked against the code while writing it (for example, session length 5–30 in steps of 5 in `index.html`; target-word difficulty bands in `selectWordsForSession()`).
+
+## 2026-11-24 — Pre-commit test gate enabled; supersedes 2026-07-22 "Skipped the pre-commit test-gate hook for now"
+**Decision:** Installed `.git/hooks/pre-commit`, a copy of `~/coding/dreaming-tools`'s script, which runs `npm test --silent` and aborts the commit on failure. Git doesn't version hooks, so the install snippet is in `docs/TESTING.md`.
+**Rationale:** The 2026-07-22 entry deferred the hook "until there's more than one test file to actually protect". There are now eight. A plain shell hook was chosen over husky/lint-staged, as in dreaming-tools: no new dependency, and nothing needs staged-file filtering, since the whole suite runs in under a second.
+**Verified:** The hook ran on the commit that added this entry.
+
+## 2026-11-24 — Version label read from package.json; service-worker precache list now tested
+**Decision:** New `js/utils/version.js` (`HablaBotVersion.displayAppVersion(element, fetchFn)`) fills `#app-version` next to the header title from `./package.json`, keeping the `v?.?.?` placeholder on any failure. It is called without `await` from `initializeUI()`, so it can't delay startup. New `tests/sw-precache.test.js` reads `sw.js` and `index.html` as text and checks that `STATIC_CACHE_URLS` covers every `<script src>`, includes `./package.json`, and lists only files that exist. `CACHE_NAME` bumped to `hablabot-v4`.
+**Rationale:** `~/coding/CLAUDE.md` asks browser-only projects to show the version from `package.json` (the apg-web pattern). apg-web uses an inline `<script>`; this uses a module with an injected `fetchFn` so it can be unit-tested. The precache test exists because precache drift caused the worst incident in this log (2026-07-22, the stale service worker). **On its first run it caught real drift:** `js/ai/conversation.js` is loaded by `index.html` and `init()`'d by `app.js`, but was never precached, so an offline start would throw on the missing `window.HablaBotConversation`. Fixed by precaching it now; the module itself is deleted in PLAN Stage 2.
+**Verified:** `tests/version.test.js` (5 tests) failed first because the module didn't exist, then passed. `tests/sw-precache.test.js` (3 tests) failed on the missing `conversation.js`, then passed after the fix. The full suite is 68/68.

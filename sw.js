@@ -13,15 +13,23 @@
 // GitHub Pages subpath bug this fixes. The resolved absolute URL for every
 // entry changes on any deployment served from a subpath, so the cache name
 // bumps to guarantee a clean precache rather than mixing old and new keys.
-const CACHE_NAME = 'hablabot-v3';
+//
+// v3 -> v4: precache js/utils/version.js and ./package.json (the version label
+// reads package.json at runtime, so it must be available offline too), plus
+// js/ai/conversation.js, which index.html loads and app.js init()s but which
+// was never precached -- offline startup threw on the missing global. Found by
+// tests/sw-precache.test.js.
+const CACHE_NAME = 'hablabot-v4';
 const STATIC_CACHE_URLS = [
   './',
   './index.html',
   './manifest.json',
+  './package.json',
   './css/main.css',
   './css/mobile.css',
   './css/animations.css',
   './js/app.js',
+  './js/ai/conversation.js',
   './js/ai/prompts.js',
   './js/realtime/session.js',
   './js/realtime/session-vocab-bridge.js',
@@ -33,7 +41,8 @@ const STATIC_CACHE_URLS = [
   './js/utils/audio.js',
   './js/utils/config.js',
   './js/utils/helpers.js',
-  './js/utils/user-manager.js'
+  './js/utils/user-manager.js',
+  './js/utils/version.js'
 ];
 
 // Install event - cache static assets
