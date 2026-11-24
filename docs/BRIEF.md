@@ -32,12 +32,14 @@ is built for one yet: there are no accounts and no server.
 
 1. The learner picks a local profile (each has its own vocabulary and session history).
 2. The learner picks a scenario, a difficulty, and a session length.
-3. HablaBot assembles a Spanish system prompt from the persona, scenario, difficulty and a few
-   target words from the learner's own vocabulary list.
+3. HablaBot assembles a Spanish system prompt from the persona, dialect, scenario and
+   difficulty. A few target words from the learner's own vocabulary list belong here too; that
+   part is hidden while it's rebuilt (PLAN Stage 8).
 4. A live voice session opens with the AI provider. The tutor greets the learner.
 5. Turn-taking is automatic: server-side voice activity detection decides when the learner has
    finished, and pause tolerance depends on the difficulty level.
-6. Both sides' words appear as text. Target-word usage is tallied.
+6. Both sides' words appear as text. (Target-word usage is tallied when vocabulary practice is
+   on.)
 7. When the session ends, its transcript and word-usage counts are saved locally.
 
 ## Constraints (Hard)

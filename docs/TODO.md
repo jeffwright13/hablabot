@@ -4,6 +4,14 @@ Open items that are not yet designed or scheduled. When an item is decided, reco
 in `DECISIONS.md`, describe the behavior in `SPEC.md`, and remove it from here. Scheduled work
 lives in `PLAN.md`.
 
+## ⭐ Planned: vocabulary practice is coming back
+
+Vocabulary practice (your own words, worked into conversation) has been **hidden since
+2026-11-24**. It isn't abandoned: it was unfinished and buggy. Reviving it is scheduled as
+**PLAN Stage 8**, near-to-mid term, with the bug list and a simpler redesign. Your saved words are
+still stored. To try it as-is, run `HablaBotConfig.set('vocabularyEnabled', true)` in the browser
+console and reload.
+
 ## Product questions (they block PLAN Stages 3 and 6)
 
 Asked during the 2026-11-24 architecture/TTS review. The dialect question was answered on

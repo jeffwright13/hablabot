@@ -4,7 +4,26 @@ _Staged, reversible plan from the 2026-11-24 architecture/TTS review. Each stage
 branch and PR, is test-driven (failing test first), and updates its docs in the same commit as
 its code. Mark stages done here as they merge, and move the reasoning into `DECISIONS.md`._
 
-**Status key:** ✅ done · 🔨 in progress · ⏸ blocked on a question in `TODO.md` · ⬜ not started
+**Status key:** ✅ done · 🔨 in progress · ⏸ blocked on a question in `TODO.md` · ⬜ not started ·
+⭐ prioritized for the near-to-mid term
+
+---
+
+## Up next (in order)
+
+Updated 2026-11-24, after v0.4.0.
+
+1. **Needs the user at a microphone:** the transcription live test (`TODO.md`, deadline
+   2027-02-26) and the Stage 3b voice comparison. Both can be done in one sitting.
+2. **Stage 3c:** prompt behavior. Add a repeat/slow-down rule, and settle the persona's name and
+   gender.
+3. **Stage 4:** time-to-first-audio metric.
+4. **Stage 5:** data-loss fixes and cleanup. This also builds the `app.js` test harness, which
+   Stage 8 needs.
+5. ⭐ **Stage 8: bring vocabulary practice back.** It's hidden, not abandoned; see below.
+6. **Stage 9:** listening mode. **Stage 10:** dialect selection.
+7. **Stages 6–7:** external TTS spike and evaluation, if the voice comparison and `gpt-live-1.1`
+   don't settle voice quality.
 
 ---
 
@@ -119,11 +138,11 @@ DECISIONS entry; SPEC §5 and §7; CLAUDE.md model rule.
   `Config` defaults (`freshDefaults()`).
 - Coverage minimums raised: global 36/80/43/36, `js/realtime/` 95/88/84/95.
 
-## Stage 3 — Voice A/B and prompt 🔨 (dialect is **Mexican Spanish**)
+## Stage 3 — Voice A/B and prompt 🔨 (3a ✅ in v0.4.0; 3b waits on the user; 3c not started)
 
 Split into two parts, because the dialect is decided but the voice isn't:
 
-**3a. Pin the dialect 🔨 (`feature/mexican-spanish-dialect`, built; live check pending).**
+**3a. Pin the dialect ✅ (PR #18, released as v0.4.0).**
 - `prompts.js`: replace the Spain or mixed cues with an explicit Mexican Spanish instruction
   (accent, seseo, `ustedes`, Mexican vocabulary). All five, as of 2026-11-24 (PR #17 review):
   - L18 persona: "Auténticamente española/latinoamericana"
@@ -154,6 +173,19 @@ Split into two parts, because the dialect is decided but the voice isn't:
    question in `TODO.md`.
 1. `config.js`: change the default voice to whichever wins (test in `config.test.js`).
 
+**3c. Prompt behavior ⬜ (from the user's 2026-11-24 live session).**
+- **Repeat/slow-down rule.** When the learner says "otra vez", "más despacio", "¿cómo?", "no
+  entiendo" or similar, repeat the same idea more slowly, in shorter sentences with simpler
+  words. Use English only as the last resort that base rule 1 already allows. In the live
+  session the model did this on its own initiative; make it explicit. Tests first:
+  `prompts.test.js` checks the rule is in every system prompt. Whether the model obeys can only
+  be checked live (TESTING checklist). An automated version would need an evaluation harness
+  (scripted learner turns against the real model, graded by a rubric), which is possible later
+  but has a real cost.
+- **Persona name and gender.** The base prompt says "Eres María", but every scenario says
+  "Eres un/a vendedor/a…". With the Cedar voice the user got a male shopkeeper. Decide whether
+  the name follows the selected voice, is dropped, or the scenarios use María's name.
+
 ## Stage 4 — Time-to-first-audio metric ⬜
 
 - `session.js`: timestamp `input_audio_buffer.speech_stopped` and the first output signal (first
@@ -171,12 +203,74 @@ Split into two parts, because the dialect is decided but the voice isn't:
   - `endConversation()` disconnects even if the save throws;
   - deleting a profile deletes its IndexedDB database. Add `fake-indexeddb` as a dev dependency
     with approval, or inject `indexedDB.deleteDatabase`.
+- **Not in scope here:** `js/vocabulary/*`, the vocabulary UI in `components.js`, and the
+  session-vocab bridge. They're hidden, not dead; Stage 8 revives them.
 - Remove the dead code and settings. The exact list will be confirmed before deleting:
   `js/speech/*`, `js/utils/audio.js`, the unused config keys (SPEC §5), and the never-called
   `prompts.js` helpers `getConversationStarters()`/`getAllConversationStarters()`,
   `generateFollowUp()` and `getVocabularyIntegration()` (PR #18 review), along with the
   starter half of the dialect tests.
 - Fix the "Hold the microphone button" toast and escape the profile-card fields.
+
+## Stage 8 — Bring vocabulary practice back ⭐ ⬜ (near-to-mid term)
+
+**Why it's hidden:** since 2026-11-24 it sits behind `vocabularyEnabled: false`
+(`js/utils/features.js`; DECISIONS 2026-11-24). It was unfinished and buggy, and fixing it would
+have pulled away from the voice work in progress. **The intent stays wanted:** a learner's own
+words, worked into real conversation. All the code and every profile's saved words were kept.
+
+**Redesign direction:** simpler and more direct than the old automatic selection.
+- At session start, the learner **chooses a few words** to practice, or accepts suggestions,
+  instead of the app silently picking at random by category.
+- After the session, **show which ones they actually used**. The tally already exists in
+  `session-vocab-bridge.js`; nothing displays it.
+- Keep the #18 rule: a target word from another region is used as listed, with the Mexican
+  equivalent mentioned once.
+
+**Bugs to fix**, from the 2026-11-24 review. Each needs a test first:
+1. **Selection:** a word qualifies only if `category === scenario`, but the category list
+   (general, food, education…) mostly doesn't match the 16 scenarios, and the default "general"
+   never matches. Needs a scenario-to-category mapping, with "general" eligible everywhere, or
+   becomes moot under the redesign. `tests/vocabulary-manager.test.js` currently encodes the old
+   rule.
+2. **Export downloads twice:** `exportToCSV()` downloads the file itself and returns an object,
+   and `app.exportVocabulary()` then downloads `[object Object]`.
+3. **CSV round trip:** `H.parseCSV()` splits on every comma and keeps the quote marks, so
+   re-importing an export corrupts words (and defeats the duplicate check). Verified with the
+   real parser. Needs a quote-aware parser, and the exporter must escape embedded `"`.
+4. **Switching profiles** re-opens the database but never reloads the in-memory word list.
+5. **The search box and the category/difficulty filters** in the Vocabulary tab aren't wired to
+   anything. The logic exists in the manager and is tested.
+6. **The session view's "0/5 words" counter (`#words-practiced`) never updates.** The only code
+   that rewrites it (`UIState.startConversation()` / `updateSessionProgress()`) has no callers in
+   `app.js`. It's hidden while the flag is off (PR #19 review); wire it to
+   `vocabBridge.getWordsUsed()` when the feature returns.
+7. **Smaller issues:** the profile card's "N words" is always 0; editing a word skips the
+   duplicate check.
+
+**Done when:** the feature is re-enabled (flag default `true`, or the flag removed), the bugs
+above are fixed with tests, the live checklist covers it, and SPEC §6 and the README describe
+it again.
+
+## Stage 9 — Listening mode ⬜ (user idea, 2026-11-24)
+De-emphasize the **tutor's** text so the learner practices listening, like dreaming-tools'
+subtitle de-emphasis but simpler, because the app already has the text.
+- **Modes:** Off / Blur / Hidden, with reveal by tap or held key.
+- **Scope:** applies to both the live streaming line (`#ai-text`) and the history. The
+  learner's own transcript stays visible, as a check on what the model heard.
+- **Accessibility:** revealed text must stay reachable by screen readers.
+- **Build:** a small testable module (like `model-settings.js`) plus a CSS class, with jsdom
+  tests.
+
+## Stage 10 — Dialect selection ⬜ (user idea, 2026-11-24)
+Choose Spain, Argentina, Peru, Puerto Rico and others, not just Mexico.
+- **Registry:** turn `getDialectPrompt()` into one entry per dialect: accent instruction,
+  vocabulary and its own test rules. Spain allows vosotros; Rioplatense needs voseo.
+- **Choosing:** select the dialect at session start, like difficulty.
+- **Work involved:** move the Mexican words now in the scenario texts into the dialect entries.
+- **Caveat:** OpenAI's voices aren't regional, so accent quality varies by dialect and needs a
+  native speaker's ear. This overlaps with Stage 7 (`gpt-live-1.1`'s claimed accent
+  consistency).
 
 ## Stage 6 — External TTS spike ⏸ (`experiment/external-tts`; key-handling answer needed)
 

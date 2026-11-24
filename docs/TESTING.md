@@ -54,6 +54,7 @@ Current coverage, by module:
 | `js/utils/version.js` | `version.test.js` | |
 | `js/utils/models.js` | `models.test.js` | registry, retired-ID migration, and a **shutdown tripwire** that fails 30 days before a default model's announced shutdown |
 | `js/ui/model-settings.js` | `model-settings.test.js` | Settings → Advanced model overrides |
+| `js/utils/features.js` | `features.test.js` | feature flags: vocabulary hidden by default; no target words and no Vocabulary tab while off |
 | `sw.js` ↔ `index.html` | `sw-precache.test.js` | precache list must match the loaded scripts; reads both as text |
 | `css/main.css` `.app-version` | `version-label-contrast.test.js` | WCAG AA contrast against both header gradient stops; reads the CSS as text |
 | `js/app.js` | **none** | harness planned (`PLAN.md`, Stage 5) |
@@ -74,7 +75,7 @@ branches and 90% everything else.
 
 | Scope | Statements | Branches | Functions | Lines | Set |
 |---|---|---|---|---|---|
-| All shipped `js/**` (excluding the unloaded `js/speech/`) | 36 | 80 | 43 | 36 | Stage 2 (2026-11-24): 36.05 / 80.06 / 43.05 / 36.05. Baseline was 30 / 78.37 / 35.82 / 30 |
+| All shipped `js/**` (excluding the unloaded `js/speech/`) | 36 | 81 | 45 | 36 | Vocabulary flag (2026-11-24): 36.87 / 81.59 / 45.33 / 36.87. Baseline was 30 / 78.37 / 35.82 / 30 |
 | `js/realtime/**` | 95 | 88 | 84 | 95 | Stage 2 (2026-11-24): 95.42 / 88.27 / 84.61 / 95.42. Baseline was 94.53 / 87.06 / 83.33 / 94.53 |
 
 The global numbers are low because `app.js`, `database.js`, `user-manager.js`, `js/ui/*` and the
@@ -103,6 +104,9 @@ confirm that the version label shows the new version. A stale cache has faked a 
 before.
 
 - [ ] Start a session at each difficulty. The tutor greets you once, in Spanish.
+- [ ] While vocabulary practice is hidden: there's no Vocabulary tab in the navigation, and during
+      a session `HablaBotApp.currentSession.targetWords` is `[]` in the console. (The prompt
+      itself travels over the WebRTC data channel, which DevTools' Network panel doesn't show.)
 - [ ] Beginner: a 2-second thinking pause doesn't trigger a reply. Advanced: replies come quickly.
 - [ ] User and AI transcripts each appear exactly once, with the correct speaker.
 - [ ] Barge-in: talking over the tutor stops its audio.

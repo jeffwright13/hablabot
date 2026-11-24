@@ -22,7 +22,9 @@
 //
 // v4 -> v5: precache js/utils/models.js and js/ui/model-settings.js (model
 // registry, PLAN Stage 2); drop js/ai/conversation.js, which was deleted.
-const CACHE_NAME = 'hablabot-v5';
+//
+// v5 -> v6: precache js/utils/features.js (feature flags; vocabulary hidden).
+const CACHE_NAME = 'hablabot-v6';
 const STATIC_CACHE_URLS = [
   './',
   './index.html',
@@ -43,6 +45,7 @@ const STATIC_CACHE_URLS = [
   './js/ui/state.js',
   './js/utils/audio.js',
   './js/utils/config.js',
+  './js/utils/features.js',
   './js/utils/helpers.js',
   './js/utils/models.js',
   './js/utils/user-manager.js',

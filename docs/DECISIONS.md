@@ -909,3 +909,29 @@ Settings UI logic went into its own module rather than `app.js`, which has no te
 3. The last `vecindario` (an apartment starter) is now `colonia`, for consistency within the scenario.
 
 **Live check (user, 2026-11-24):** one conversation "seems OK", though the user said it's hard to judge at their level. TESTING now has a check that needs no fluency (seseo in "cerveza, zapato, gracias, cinco").
+
+## 2026-11-24 — Vocabulary practice hidden behind a flag, planned to return (PLAN Stage 8)
+**Decision:** New `js/utils/features.js` (`HablaBotFeatures`) and a `vocabularyEnabled` setting, default `false`. While it's off:
+- `applyFeatureVisibility()` hides the Vocabulary tab and view;
+- `switchView('vocabulary')` is a no-op;
+- `selectTargetWords()` returns `[]` without consulting the word list, so sessions send no target-vocabulary prompt block and record an empty word tally.
+- the session view's "0/5 words" counter is hidden as well, and `isFirstTimeUser()` stops treating an empty word list as a sign of a new user. Both were added after the PR #19 review (Devin). The counter never updated even with the flag on, so it's on the Stage 8 list.
+
+**Same-PR fix:** CLAUDE.md's "A conversation turn" now describes the target-word path through `selectTargetWords()`.
+
+**Nothing is deleted:** the vocabulary code, UI and bridge stay, and so does every profile's saved words in IndexedDB. Setting the flag to `true` from the console restores the old behavior. Reviving it is a prominent planned stage, **PLAN Stage 8 ⭐ (near-to-mid term)**, with a bug list and a simpler redesign: the learner chooses words at session start, and the app shows which ones they used. It's also called out at the top of `TODO.md` and in the README.
+
+**Rationale:** The user's call, after the 2026-11-24 review of the vocabulary and profile code. The feature was unfinished and buggy:
+- target-word selection required `category === scenario`, which rarely matches and never matches the default "general";
+- export downloaded twice, the second file containing `[object Object]`;
+- an export didn't survive re-import (the parser keeps quote marks and splits quoted commas; verified with the real parser);
+- switching profiles kept the old word list;
+- search and filters were unwired.
+
+Fixing all that is a stage of its own in a different direction from the voice work in progress (transcription deadline, voice choice, listening mode). Because selection rarely matched, hiding it changes little in practice. Hiding beats deleting: it's one flag to undo, the user's saved words are kept, and the diff is small. Deleting properly would touch the manager, components, database methods, tests, CSS and docs. The user explicitly wants it back, so the revival is a numbered stage, not a TODO footnote. The intent was confirmed with the user: target words are a profile's own words to practice in real conversation. Profiles are left as they are; with vocabulary hidden they mainly separate saved sessions, which nothing displays yet (Stage 5 territory).
+
+**Live session (user, 2026-11-24), recorded here as the first real live check since the registry and dialect work:** 2½ minutes, Cedar voice, beginner, Shopping, 0.9x, 80% volume, headphones, `gpt-realtime-2.1` + `gpt-4o-transcribe`. It went well. Choppy beginner Spanish was transcribed without trouble, and the shopkeeper was patient and cheerful. Two observations became PLAN Stage 3c:
+1. The tutor was a man, not "María", because the persona name conflicts with "Eres un/a vendedor/a" and Cedar sounds male.
+2. After "otra vez" the tutor seemed to slow down and simplify on its own; no prompt rule asks for that yet.
+
+**Verified:** `tests/features.test.js` (8 tests, plus 5 after review) failed first, then passed: first because the module didn't exist, then on the missing counter and first-time logic. They cover: default off; on only for exactly `true`; the flag persisting through Config; no target words, and no call to the manager, while off; delegation while on; the tab and view hidden while off and the tab shown while on; tolerance of missing elements. `sw-precache.test.js` confirmed the new script is precached (`CACHE_NAME` is now `hablabot-v6`). The `app.js` wiring is three one-line call sites into the tested helpers; `app.js` itself still has no harness (Stage 5). Full suite: 147/147. Coverage minimums raised to global 36 / 81 / 45 / 36 (measured 36.87 / 81.59 / 45.33 / 36.87). **Browser check** (Chrome, local server): the app initialized with no console errors. The Vocabulary tab was hidden, `switchView('vocabulary')` stayed on Conversation, and `selectTargetWords` returned `[]`. With the flag set to `true` the tab reappeared and the view opened. The header showed v0.4.0.
