@@ -6,13 +6,13 @@ lives in `PLAN.md`.
 
 ## Product questions (they block PLAN Stages 3 and 6)
 
-Asked during the 2026-11-24 architecture/TTS review. Not yet answered.
+Asked during the 2026-11-24 architecture/TTS review. The dialect question was answered on
+2026-11-24 (Mexican Spanish; see DECISIONS); the rest are still open.
 
-- **What exactly sounds wrong with the current voice?** Robotic, wrong accent, English-accented
-  Spanish, mispronunciations, or pacing? Which voice and browser? (The default is `alloy`, and
-  most testing has probably used it.)
-- **Which dialect should the tutor speak?** Castilian, Mexican, or a neutral Latin American
-  Spanish? The prompt currently mixes them.
+- **What exactly sounds wrong with the current voice?** *Postponed by the user (2026-11-24)
+  until after the Stage 3 listening comparison;* they haven't compared voices yet. Ask again
+  after that: robotic, wrong accent, English-accented Spanish, mispronunciations, or pacing?
+  Which voice and browser?
 - **Is "client-only, bring your own key" a hard constraint** once a second provider key exists?
   If not, a small token-minting proxy becomes an option for the ElevenLabs key.
 - **How much does barge-in matter compared with voice quality?** An external TTS provider makes
@@ -29,7 +29,30 @@ Asked during the 2026-11-24 architecture/TTS review. Not yet answered.
   with server VAD. `gpt-transcribe` works in a Realtime session only over WebSocket, with
   manual turn commits. `gpt-live-transcribe` and `gpt-realtime-whisper` work only in
   transcription-only sessions, and `gpt-live-transcribe` doesn't support server VAD and uses
-  `languages: [...]`, not `language`. Options to evaluate:
+  `languages: [...]`, not `language`.
+
+  **Chosen first step (user, 2026-11-24): option 1, a live test in Settings.** Options 2 and 3
+  are fallbacks if it fails. Procedure, for the user to run with a real key (Chrome):
+  1. Settings → Advanced → Transcription model: enter `gpt-transcribe`. Start a beginner
+     session and speak 3–4 turns.
+  2. Pass means each of your turns appears in the history as accurate Spanish text, with no
+     error toast. Fail means a "Transcription model … was rejected" toast, turns missing from
+     the history, or `input audio transcription failed` in the console. Copy any error text
+     verbatim: it's also the first real model-rejection response, which SPEC §7 needs.
+  3. Repeat with `gpt-live-transcribe`. **Caveat:** the app sends `language: 'es'`, but per the
+     docs this model takes `languages: ["es"]`. A failure that mentions `language` is about the
+     field, not necessarily the model, and needs a small code change to retest.
+  **Reading a failure:** judge by OpenAI's own text (quoted inside the toast) and by the `param`
+  in the console's `RealtimeSession: API error` log line, not only by the toast's first sentence.
+  Since PR #17, a "model … was rejected" toast appears only when `param` is the model field
+  itself (or, with no `param`, when the message quotes the model ID). A rejected `language`
+  field shows OpenAI's text as-is.
+  4. Clear the field afterwards (blank means the default).
+
+  Record the result in DECISIONS. If one passes, change `DEFAULT_MODELS.transcription` (with
+  tests) and remove its `KNOWN_SHUTDOWNS` entry.
+
+  Options:
   1. Live-test whether `gpt-transcribe` or `gpt-live-transcribe` actually works in the current
      session despite the docs. Settings → Advanced makes this a no-code test. Note that
      `gpt-realtime-whisper` "never produced a transcript" in July 2026 testing, but that was
