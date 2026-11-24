@@ -165,4 +165,7 @@ when settings load.
 - The header shows `v<version>` next to the title, read at runtime from `./package.json`
   (`js/utils/version.js`, the apg-web pattern). If the fetch fails, the `v?.?.?` placeholder
   stays. `package.json` is precached so the label also works offline.
+- The label is white text on a translucent dark pill, giving 6.2:1 to 8.2:1 contrast across the
+  header gradient. It must stay at or above WCAG AA's 4.5:1 for small text, which
+  `tests/version-label-contrast.test.js` enforces.
 - The version changes only through `npm version <patch|minor|major>`.

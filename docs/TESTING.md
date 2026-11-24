@@ -53,6 +53,7 @@ Current coverage, by module:
 | `js/utils/config.js` | `config.test.js` | |
 | `js/utils/version.js` | `version.test.js` | |
 | `sw.js` ↔ `index.html` | `sw-precache.test.js` | precache list must match the loaded scripts; reads both as text |
+| `css/main.css` `.app-version` | `version-label-contrast.test.js` | WCAG AA contrast against both header gradient stops; reads the CSS as text |
 | `js/app.js` | **none** | harness planned (`PLAN.md`, Stage 5) |
 | `js/storage/database.js` | **none** | jsdom has no IndexedDB; needs `fake-indexeddb` |
 | `js/utils/user-manager.js`, `js/ui/*` | **none** | |
