@@ -196,8 +196,9 @@ hablabot/
 Development is test-driven: every behavior change starts with a failing Vitest test.
 
 ```bash
-npm test          # run the suite once (also run by the pre-commit hook)
+npm test                # run the suite once (also run by the pre-commit hook)
 npm run test:watch
+npm run test:coverage   # suite + coverage with enforced minimums (what CI runs)
 ```
 
 See `docs/TESTING.md` for the test layers, how to install the pre-commit hook, and the manual

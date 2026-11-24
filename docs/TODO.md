@@ -32,6 +32,13 @@ Asked during the 2026-11-24 architecture/TTS review. Not yet answered.
 
 ## Known gaps
 
+- **Upgrade Vitest from 2 to the current major** (5.x at the time of writing; dreaming-tools is
+  on 4.x). Every current `npm audit` advisory (13 as of 2026-11-24: 3 critical, 3 high, 7
+  moderate) is in Vitest 2, Vite, esbuild and the coverage plugin, which is pinned to match
+  Vitest. They are dev-only and never ship, so CI only reports them. The upgrade is breaking:
+  check jsdom compatibility, the config's `thresholds` format and the CommonJS-shim imports, and
+  do it on its own branch with the full suite as the check.
+
 - **PWA icons are missing** (`assets/icons/` holds only a placeholder). Installability hasn't
   been confirmed on every platform.
 - **There are no request timeouts** in `RealtimeSession.connect()`. A hung `client_secrets` or SDP

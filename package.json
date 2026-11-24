@@ -6,9 +6,11 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "serve": "npx serve ."
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^2.1.9",
     "jsdom": "^25.0.0",
     "vitest": "^2.0.0"
   }

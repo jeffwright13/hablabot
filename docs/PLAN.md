@@ -31,7 +31,7 @@ Recommendation: **keep the architecture.** Add one narrow output seam only if th
 
 ---
 
-## Stage 0 — Project conventions 🔨 (`chore/project-conventions`)
+## Stage 0 — Project conventions ✅ (PR #14, released as v0.2.0)
 
 ### Scope
 Bring the repo up to `~/coding/CLAUDE.md` and the `krashen` / `dreaming-tools` standards.
@@ -59,14 +59,19 @@ Bring the repo up to `~/coding/CLAUDE.md` and the `krashen` / `dreaming-tools` s
   contradicting the code.
 - Version bumped to `0.2.0` with `npm version minor` after merge, and the tag pushed.
 
-## Stage 1 — Coverage baseline ⬜ (`chore/coverage`)
+## Stage 1 — Coverage baseline 🔨 (`chore/coverage`)
 
 - Add `@vitest/coverage-v8` (dev only) and a `test:coverage` script. Set thresholds in
   `vitest.config.js` at **today's measured** figures, rounded down, and raise them each stage
   toward dreaming-tools' 80/90.
 - Add a coverage step to CI.
+- Also: copy dreaming-tools' audit policy into CI (blocking `npm audit --omit=dev`, reported
+  full audit), and ignore `coverage/`.
 - Done when `npm run test:coverage` passes locally and in CI, and `TESTING.md` records the
-  baseline.
+  baseline. *Measured 2026-11-24: 30 / 78.37 / 35.82 / 30 globally, 94.53 / 87.06 / 83.33 / 94.53
+  for `js/realtime/`.*
+- **Every later stage** raises the `vitest.config.js` minimums to its new measurement in its
+  final commit.
 
 ## Stage 2 — Model registry ⬜ (`feature/model-registry`)
 
