@@ -76,11 +76,14 @@ class Config {
       if (stored) {
         const parsed = JSON.parse(stored);
         this.settings = { ...this.defaults, ...parsed };
-        // models is nested: merge it too, so an older or partial saved
-        // object still gets a value for every role.
-        if (parsed.models && typeof parsed.models === 'object') {
-          this.settings.models = { ...this.defaults.models, ...parsed.models };
-        }
+        // models is nested: always merge it into a NEW object, so an older
+        // config with no models key doesn't end up sharing defaults.models
+        // (the spread above copies that reference), a partial one still gets
+        // every role, and a malformed value (e.g. an array) is ignored.
+        const storedModels = parsed.models && typeof parsed.models === 'object' && !Array.isArray(parsed.models)
+          ? parsed.models
+          : {};
+        this.settings.models = { ...this.defaults.models, ...storedModels };
         if (this.migrateRetiredModels()) {
           await this.save();
         }

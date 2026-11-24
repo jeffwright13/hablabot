@@ -117,7 +117,7 @@ DECISIONS entry; SPEC §5 and §7; CLAUDE.md model rule.
 - Added beyond the plan: `KNOWN_SHUTDOWNS` plus the tripwire test; the transcription-failure path
   in the rejection handling; and a fix for a latent shared-reference bug in
   `Config` defaults (`freshDefaults()`).
-- Coverage minimums raised: global 36/79/43/36, `js/realtime/` 95/88/84/95.
+- Coverage minimums raised: global 36/80/43/36, `js/realtime/` 95/88/84/95.
 
 ## Stage 3 — Voice A/B and prompt ⏸ (dialect answer needed)
 

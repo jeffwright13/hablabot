@@ -861,20 +861,20 @@ _From here on, entries use the Decision / Rationale / Verified format from `~/co
 - **The `gpt-4o-realtime-preview` → `gpt-realtime-2.1` mapping is this app's choice**: the entry read didn't name a replacement.
 - **Overrides pass unknown IDs through**, so a new model can be tried from Settings before the registry knows it.
 
-The error shape for a rejected model is undocumented, so it is detected heuristically (`param` names the field, or the message quotes the ID). It needs confirming against a real response.
+The error shape for a rejected model is undocumented, so it is detected heuristically (`param` names the field, or the message quotes the ID). It needs confirming against a real response. OpenAI's text is closed with exactly one sentence-ending mark before "Change it in Settings → Advanced." (a review nit: a message without a final period ran on).
 
 Settings UI logic went into its own module rather than `app.js`, which has no test harness yet (Stage 5).
 
 **Found along the way:**
-1. A shared-reference bug: `{ ...this.defaults }` made `settings.models` the same object as `defaults.models`, so editing the overrides in place would change the defaults and break `reset()`. Fixed with `freshDefaults()`.
+1. A shared-reference bug: `{ ...this.defaults }` made `settings.models` the same object as `defaults.models`, so editing the overrides in place would change the defaults and break `reset()`. Fixed with `freshDefaults()` in the constructor, `init()`'s fallback and `reset()`. *The PR #16 review (Devin) found the first fix missed `load()`.* A saved config with no `models` key (every config saved before this change) still got the shared reference through the top-level spread. `load()` now always merges into a new object and ignores a non-object or array value, which also stops a saved `["x"]` from becoming `{ "0": "x", … }`.
 2. `gpt-live-1.1`, a full-duplex model on a separate Live API that claims a more consistent accent and voice. Added to PLAN Stage 7 and `TODO.md`.
 
 **Verified:** Each module's tests failed first, then passed:
 - `tests/models.test.js` (20), including the tripwire, which passes today;
 - `tests/model-settings.test.js` (7);
-- 8 new `config.test.js` cases, one of which reproduced the shared-reference bug before the fix;
-- 9 new `realtime-session.test.js` cases.
+- 10 new `config.test.js` cases, two of which reproduced the shared-reference bug (the second on the `load()` path, after review) before each fix;
+- 10 new `realtime-session.test.js` cases.
 
-`sw-precache.test.js` confirmed the two new scripts are precached and the deleted one is gone (`CACHE_NAME` is now `hablabot-v5`). Full suite: 118/118. Coverage minimums were raised to the new measurement: global 36 / 79 / 43 / 36 (was 30 / 78 / 35 / 30), and `js/realtime/` 95 / 88 / 84 / 95 (was 94 / 87 / 83 / 94). **Browser check (Chrome, macOS dark mode, `python3 -m http.server`):** the app initialized with no console errors, and `HablaBotConversation` is gone. Settings → Advanced showed the default placeholders and the note with the shutdown date. An override typed into the field persisted across a reload. A `gpt-4o-realtime-preview` planted directly in `localStorage` was migrated to `gpt-realtime-2.1` on load and written back. **Still not live-tested:** a real conversation (needs an API key) and a real model-rejection response.
+`sw-precache.test.js` confirmed the two new scripts are precached and the deleted one is gone (`CACHE_NAME` is now `hablabot-v5`). Full suite: 123/123. Coverage minimums were raised to the new measurement: global 36 / 80 / 43 / 36 (was 30 / 78 / 35 / 30), and `js/realtime/` 95 / 88 / 84 / 95 (was 94 / 87 / 83 / 94). **Browser check (Chrome, macOS dark mode, `python3 -m http.server`):** the app initialized with no console errors, and `HablaBotConversation` is gone. Settings → Advanced showed the default placeholders and the note with the shutdown date. An override typed into the field persisted across a reload. A `gpt-4o-realtime-preview` planted directly in `localStorage` was migrated to `gpt-realtime-2.1` on load and written back. **Still not live-tested:** a real conversation (needs an API key) and a real model-rejection response.
 
 **Also fixed here (a PR #14 regression found by that browser check):** `css/mobile.css`'s dark-scheme block redefines `--white` as `#1a1a1a`, a dark surface color, so the version label's `color: var(--white)` rendered near-black on the darkened-red pill: 2.82:1 and 2.12:1. The label now uses literal `#ffffff`, because the header is red in both schemes. `tests/version-label-contrast.test.js` now reads the dark-scheme overrides from `mobile.css` and checks both schemes (4 cases). The two dark-scheme cases failed first. Lesson recorded in `TESTING.md`: any color check must cover both schemes, because `--white` and the `--gray-*` variables are theme-dependent surface colors, not literal colors.

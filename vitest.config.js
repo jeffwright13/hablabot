@@ -23,7 +23,7 @@ export default defineConfig({
       // through; add the missing tests instead (see docs/TESTING.md).
       thresholds: {
         statements: 36,
-        branches: 79,
+        branches: 80,
         functions: 43,
         lines: 36,
         // The core conversation path is already well covered. A per-glob

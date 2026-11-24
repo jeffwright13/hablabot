@@ -506,8 +506,11 @@ class RealtimeSession {
     if (!paramMatches && !message.includes(model)) return null;
 
     const label = role === 'transcription' ? 'Transcription' : 'Realtime';
+    // End OpenAI's text as a sentence, so it can't run on into ours.
+    const text = String(apiMessage).trim();
+    const sentence = /[.!?]$/.test(text) ? text : `${text}.`;
     return `${label} model "${model}" was rejected by OpenAI (it may have been retired or renamed): ` +
-      `${apiMessage} Change it in Settings → Advanced.`;
+      `${sentence} Change it in Settings → Advanced.`;
   }
 
   _clampVolume(volume) {

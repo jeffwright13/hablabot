@@ -86,6 +86,26 @@ describe('Config model overrides', () => {
     expect(config.get('models')).toEqual({ realtime: '', transcription: '' });
   });
 
+  // PR #16 review: freshDefaults() covered the constructor, init() and
+  // reset(), but load() still copied the defaults.models reference whenever
+  // the saved config had no models key, which is true of every config saved
+  // before model overrides existed.
+  it('keeps the defaults intact after loading a saved config that has no models key', async () => {
+    storeConfig({ realtimeVoice: 'alloy' });
+    const config = new Config();
+    await config.load();
+    config.get('models').realtime = 'mutated-in-place';
+    await config.reset();
+    expect(config.get('models')).toEqual({ realtime: '', transcription: '' });
+  });
+
+  it('ignores a saved models array instead of spreading its indexes into the overrides', async () => {
+    storeConfig({ models: ['x'] });
+    const config = new Config();
+    await config.init();
+    expect(config.get('models')).toEqual({ realtime: '', transcription: '' });
+  });
+
   it('round-trips an override through set() and a fresh load', async () => {
     const config = new Config();
     await config.set('models', { ...config.get('models'), transcription: 'gpt-transcribe' });

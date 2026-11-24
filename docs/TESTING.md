@@ -74,8 +74,8 @@ branches and 90% everything else.
 
 | Scope | Statements | Branches | Functions | Lines | Set |
 |---|---|---|---|---|---|
-| All shipped `js/**` (excluding the unloaded `js/speech/`) | 36 | 79 | 43 | 36 | Stage 2 (2026-11-24): 36.03 / 79.66 / 43.05 / 36.03. Baseline was 30 / 78.37 / 35.82 / 30 |
-| `js/realtime/**` | 95 | 88 | 84 | 95 | Stage 2 (2026-11-24): 95.4 / 88.02 / 84.61 / 95.4. Baseline was 94.53 / 87.06 / 83.33 / 94.53 |
+| All shipped `js/**` (excluding the unloaded `js/speech/`) | 36 | 80 | 43 | 36 | Stage 2 (2026-11-24): 36.05 / 80.06 / 43.05 / 36.05. Baseline was 30 / 78.37 / 35.82 / 30 |
+| `js/realtime/**` | 95 | 88 | 84 | 95 | Stage 2 (2026-11-24): 95.42 / 88.27 / 84.61 / 95.42. Baseline was 94.53 / 87.06 / 83.33 / 94.53 |
 
 The global numbers are low because `app.js`, `database.js`, `user-manager.js`, `js/ui/*` and the
 dead `audio.js` have no tests. Branch coverage looks high only because untested

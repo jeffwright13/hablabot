@@ -310,6 +310,23 @@ describe('RealtimeSession model IDs', () => {
     expect(errors[0]).toContain('Realtime model "gpt-gone"');
   });
 
+  // PR #16 review: OpenAI's text was joined to "Change it…" with a bare
+  // space, so a message without a final period ran on into the next sentence.
+  it('ends OpenAI\'s text with exactly one period before the Settings pointer', async () => {
+    mockState.tokenOk = false;
+    mockState.tokenStatus = 404;
+    const errors = [];
+    session.onError = (msg) => errors.push(msg);
+
+    mockState.tokenErrorBody = { error: { message: 'model gpt-gone not found' } };
+    await expect(session.connect('sk-test', { model: 'gpt-gone' })).rejects.toThrow();
+    mockState.tokenErrorBody = { error: { message: 'model gpt-gone not found.  ' } };
+    await expect(session.connect('sk-test', { model: 'gpt-gone' })).rejects.toThrow();
+
+    expect(errors[0]).toContain('model gpt-gone not found. Change it in Settings → Advanced.');
+    expect(errors[1]).toContain('model gpt-gone not found. Change it in Settings → Advanced.');
+  });
+
   it('leaves an unrelated token failure message unchanged', async () => {
     mockState.tokenOk = false;
     const errors = [];
