@@ -23,7 +23,12 @@ describe('default voice', () => {
     it(`${file} has no hardcoded voice ID`, () => {
       const source = read(file);
       for (const voice of VOICES) {
-        expect(source, `'${voice}' in ${file}`).not.toMatch(new RegExp(`['"]${voice}['"]`));
+        expect(
+          source,
+          `${file} contains the quoted voice ID '${voice}'. Read the default from ` +
+          `HablaBotModels.DEFAULT_VOICE (js/utils/models.js) instead. If this string isn't ` +
+          `a voice setting (a log tag, say), reword it so it doesn't match a voice name.`
+        ).not.toMatch(new RegExp(`['"]${voice}['"]`));
       }
     });
   }
