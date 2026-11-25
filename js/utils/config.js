@@ -14,8 +14,9 @@ class Config {
       voiceIndex: 0,
       // Voice persona for the OpenAI Realtime API session (js/realtime/session.js).
       // Not language-specific — the model speaks whatever language it's instructed
-      // to, in this voice. 'alloy' matches the Realtime API's own default.
-      realtimeVoice: 'alloy',
+      // to, in this voice. The default comes from the registry (models.js loads
+      // first); a voice saved earlier, such as the old default, is kept.
+      realtimeVoice: (window.HablaBotModels && window.HablaBotModels.DEFAULT_VOICE) || '',
 
       // Per-role AI model overrides (Settings → Advanced). Blank means "use the
       // registry default"; the IDs actually sent come from

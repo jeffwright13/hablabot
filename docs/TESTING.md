@@ -55,6 +55,7 @@ Current coverage, by module:
 | `js/utils/models.js` | `models.test.js` | registry, retired-ID migration, and a **shutdown tripwire** that fails 30 days before a default model's announced shutdown |
 | `js/ui/model-settings.js` | `model-settings.test.js` | Settings → Advanced model overrides |
 | `js/utils/features.js` | `features.test.js` | feature flags: vocabulary hidden by default; no target words and no Vocabulary tab while off |
+| default voice | `default-voice.test.js` | `DEFAULT_VOICE` is offered in Settings, and `app.js`, `session.js` and `config.js` hardcode no voice ID; reads the sources as text |
 | `sw.js` ↔ `index.html` | `sw-precache.test.js` | precache list must match the loaded scripts; reads both as text |
 | `css/main.css` `.app-version` | `version-label-contrast.test.js` | WCAG AA contrast against both header gradient stops; reads the CSS as text |
 | `js/app.js` | **none** | harness planned (`PLAN.md`, Stage 5) |
@@ -75,8 +76,8 @@ branches and 90% everything else.
 
 | Scope | Statements | Branches | Functions | Lines | Set |
 |---|---|---|---|---|---|
-| All shipped `js/**` (excluding the unloaded `js/speech/`) | 36 | 81 | 45 | 36 | Vocabulary flag (2026-11-24): 36.87 / 81.59 / 45.33 / 36.87. Baseline was 30 / 78.37 / 35.82 / 30 |
-| `js/realtime/**` | 95 | 88 | 84 | 95 | Stage 2 (2026-11-24): 95.42 / 88.27 / 84.61 / 95.42. Baseline was 94.53 / 87.06 / 83.33 / 94.53 |
+| All shipped `js/**` (excluding the unloaded `js/speech/`) | 37 | 81 | 45 | 37 | Stage 3b (2026-11-25): 37 / 81.4 / 45.69 / 37. Baseline was 30 / 78.37 / 35.82 / 30 |
+| `js/realtime/**` | 95 | 88 | 85 | 95 | Stage 3b (2026-11-25): 95.48 / 88.51 / 85.19 / 95.48. Baseline was 94.53 / 87.06 / 83.33 / 94.53 |
 
 The global numbers are low because `app.js`, `database.js`, `user-manager.js`, `js/ui/*` and the
 dead `audio.js` have no tests. Branch coverage looks high only because untested

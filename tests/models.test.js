@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   DEFAULT_MODELS,
+  DEFAULT_VOICE,
   RETIRED_MODELS,
   KNOWN_SHUTDOWNS,
   resolveModels,
@@ -20,6 +21,14 @@ describe('DEFAULT_MODELS', () => {
     for (const id of Object.values(DEFAULT_MODELS)) {
       expect(RETIRED_MODELS).not.toHaveProperty(id);
     }
+  });
+});
+
+// Stage 3b (user's choice, 2026-11-25, after the 2026-11-24 listening
+// comparison in which alloy, marin and cedar all passed).
+describe('DEFAULT_VOICE', () => {
+  it('is marin', () => {
+    expect(DEFAULT_VOICE).toBe('marin');
   });
 });
 

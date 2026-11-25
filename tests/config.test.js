@@ -12,8 +12,16 @@ describe('Config realtimeVoice setting', () => {
     config = new Config();
   });
 
-  it('defaults to alloy, matching what session.js falls back to', () => {
-    expect(config.get('realtimeVoice')).toBe('alloy');
+  it('defaults to the registry voice (marin), the same one session.js falls back to', () => {
+    expect(config.get('realtimeVoice')).toBe('marin');
+    expect(config.get('realtimeVoice')).toBe(window.HablaBotModels.DEFAULT_VOICE);
+  });
+
+  it('keeps a voice the learner saved earlier, including the old alloy default', async () => {
+    localStorage.setItem('hablabot-config', JSON.stringify({ realtimeVoice: 'alloy' }));
+    const reloaded = new Config();
+    await reloaded.load();
+    expect(reloaded.get('realtimeVoice')).toBe('alloy');
   });
 
   it('persists a chosen voice across save/load, same as any other setting', async () => {

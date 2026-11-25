@@ -416,7 +416,7 @@ class HablaBotApp {
           model: models.realtime,
           transcriptionModel: models.transcription,
           instructions: systemPrompt,
-          voice: this.config.get('realtimeVoice') || 'alloy',
+          voice: this.config.get('realtimeVoice') || window.HablaBotModels.DEFAULT_VOICE,
           speed: this.config.get('speechRate'),
           volume: this.config.get('speechVolume'),
           autoGreet: true,
@@ -911,7 +911,7 @@ class HablaBotApp {
       // Reflect the saved Realtime API voice choice (options are static in index.html —
       // this list isn't device-dependent the way browser speechSynthesis voices were).
       if (this.elements.voiceSelect) {
-        this.elements.voiceSelect.value = this.config.get('realtimeVoice') || 'alloy';
+        this.elements.voiceSelect.value = this.config.get('realtimeVoice') || window.HablaBotModels.DEFAULT_VOICE;
       }
       if (this.modelSettings) this.modelSettings.refresh();
       // Update user display

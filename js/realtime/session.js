@@ -138,7 +138,7 @@ class RealtimeSession {
             type: 'realtime',
             model: this._models.realtime,
             audio: {
-              output: { voice: options.voice || 'alloy', speed: this._clampSpeed(options.speed) }
+              output: { voice: options.voice || this._defaultVoice(), speed: this._clampSpeed(options.speed) }
             }
           }
         })
@@ -279,7 +279,7 @@ class RealtimeSession {
                 }
               },
               output: {
-                voice: options.voice || 'alloy',
+                voice: options.voice || this._defaultVoice(),
                 speed: this._clampSpeed(options.speed)
               }
             }
@@ -479,6 +479,10 @@ class RealtimeSession {
   _clampSpeed(speed) {
     if (typeof speed !== 'number' || Number.isNaN(speed)) return 1.0;
     return Math.min(1.5, Math.max(0.25, speed));
+  }
+
+  _defaultVoice() {
+    return window.HablaBotModels.DEFAULT_VOICE;
   }
 
   _resolveModels(options) {

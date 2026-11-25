@@ -23,7 +23,7 @@ Updated 2026-11-24, after the live test (DECISIONS: neither transcription replac
    use. It builds the mute mechanism that issue #9 needs too.
 3. **Stage 15: session length to the minute.** Small; it can share a branch with Stage 14 or
    go straight after it.
-4. **Stage 3b:** pick the default voice. A preference call; all three voices passed.
+4. **Stage 3b:** ✅ default voice is `marin`.
 5. **Stage 3c:** prompt behavior. Add a repeat/slow-down rule, and settle the persona's name and
    gender.
 6. **Stage 4:** time-to-first-audio metric.
@@ -178,7 +178,7 @@ Split into two parts, because the dialect is decided but the voice isn't:
   vecindario). These now use mesero/a, estadía, departamento, renta, depósito, recámara and
   colonia. The new test caught one more `fianza`, in an advanced starter.
 
-**3b. Choose the voice 🔨 (comparison done 2026-11-24; default not yet chosen).**
+**3b. Choose the voice ✅ (`marin`, chosen by the user 2026-11-25).**
 0. ✅ Listening comparison. The user heard `alloy`, `marin` and `cedar` in live sessions (Firefox,
    v0.5.0) and found none of them bothersome (DECISIONS 2026-11-24). Not done: the separate 0.9
    vs 1.0 speed comparison. It didn't seem needed.

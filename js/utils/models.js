@@ -28,6 +28,13 @@ const DEFAULT_MODELS = Object.freeze({
   transcription: 'gpt-4o-transcribe',
 });
 
+// Default voice for the Realtime session (audio.output.voice). Voice IDs are
+// provider IDs that can change like model IDs, so the default lives here too
+// and no other file hardcodes one (tests/default-voice.test.js). Chosen by the
+// user on 2026-11-25 after a listening comparison in which alloy, marin and
+// cedar all passed (DECISIONS). A voice saved in Settings still wins.
+const DEFAULT_VOICE = 'marin';
+
 // Announced shutdown dates (YYYY-MM-DD) for models this app uses by default.
 const KNOWN_SHUTDOWNS = Object.freeze({
   'gpt-4o-transcribe': '2027-02-26', // notice 2026-08-26
@@ -111,6 +118,7 @@ function defaultsNearShutdown(today, warnDays) {
 const HablaBotModels = {
   MODELS_LAST_CHECKED,
   DEFAULT_MODELS,
+  DEFAULT_VOICE,
   KNOWN_SHUTDOWNS,
   RETIRED_MODELS,
   resolveModels,
