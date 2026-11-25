@@ -376,15 +376,26 @@ app's WebRTC + server-VAD session, and that the failure is **silent**: no error,
 **13a. Make a silent transcription failure visible (first; small).** Tests first in
 `realtime-session.test.js`, with simulated event sequences:
 - After 2 consecutive user turns (VAD `speech_stopped` plus the user `conversation.item.done`)
-  with no transcript within a timeout (to be named; ~10 s), notify the learner **once per
-  connection**, naming the transcription model and pointing to Settings → Advanced. A
-  transcript arriving resets the count; a late transcript just inside the timeout doesn't
-  trigger it. Pass the timer in, as with `fetchFn`.
+  for which **no transcription event arrives** (neither
+  `conversation.item.input_audio_transcription.completed` nor `.failed`) within a timeout (to
+  be named; ~10 s), notify the learner **once per connection**, naming the transcription model
+  and pointing to Settings → Advanced. That's exactly the live test's signature. Judge by the
+  *event*, not by non-empty text (PR #21 review): coughs, VAD false starts and issue #9's echo
+  loop give real turns an empty transcript, and that's not a model failure. So:
+  - a `completed` event resets the count, **even with `""`** (its own test case);
+  - `.failed` is already reported separately, so it resets the count too;
+  - a late event just inside the timeout doesn't trigger the warning.
+  Pass the timer in, as with `fetchFn`.
 - Remove the "conversation.item.done had no recognizable transcript field" warning when the
   transcript is `null` (normal: it arrives later). Keep it for a genuinely unrecognized shape.
 - Log the `session.updated` event's transcription settings, so a future live test shows
   whether the server kept the requested model.
 - SPEC §4 and §7: document the silent-failure case and its detection.
+- **Then re-run the live test in Chrome** (the reference browser), with the new `session.updated`
+  log line, for `gpt-transcribe` and `gpt-live-transcribe`. The 2026-11-24 evidence is one Firefox
+  run with that payload unlogged. The failure is almost certainly server-side, but 13b's
+  premise should rest on the reference browser and the logged payload (PR #21 review). Two
+  minutes per model; record the result in DECISIONS.
 
 **13b. Choose and build the replacement.** Re-read OpenAI's models, deprecations and Realtime
 pages first (they change), then compare:
@@ -429,7 +440,11 @@ talking. Muting during your own turn sends silence, which ends that turn as a no
 - Live check (TESTING): clear your throat while muted, and the tutor keeps talking.
 
 **Related:** issue #9 (automatic mute during AI playback, as an echo workaround) uses the same
-mechanism; do it here or straight after. **If built, it must be a Settings toggle, default
+mechanism; do it here or straight after. **Its timing must come from the playback state**
+(`output_audio_buffer.started` → `.stopped`, Stage 11a), not `onAIAudioStart`/`onAIAudioEnd`
+as the issue's sketch says. `onAIAudioEnd` fires at `response.done`, which over WebRTC comes
+before playback ends, so unmuting there lets the echo tail retrigger VAD: the very loop #9 is
+meant to stop (PR #21 review). If Stage 11a hasn't landed first, this stage builds that state. **If built, it must be a Settings toggle, default
 off** (user, 2026-11-24: "it might be lame"). It disables barge-in while the tutor talks, so
 it's an escape hatch for setups without a headset, not a default. Issue #9 already proposes
 exactly this, with the caveat shown next to the toggle.

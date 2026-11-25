@@ -986,6 +986,8 @@ Stages 4 and 12 now time from the `output_audio_buffer` events for the same reas
 
 **Rationale:** The user wants to mute pre-emptively before clearing their throat, because server VAD otherwise reads it as speech and the tutor stops to listen. Disabling the track is the standard WebRTC way to send silence: it needs no Realtime API event and no reconnect, and it leaves barge-in untouched while unmuted. Alternatives considered: raising the VAD `threshold` (affects every turn, and quiet beginners would suffer); push-to-talk (a different interaction model, and BRIEF keeps hands-free conversation as the default). A hold-to-mute hotkey variant is noted as an option, because it fits a momentary cough well.
 
+**PR #21 review (Devin):** issue #9's automatic mute must be timed from `output_audio_buffer.started`/`.stopped`, not `onAIAudioStart`/`onAIAudioEnd`, because `onAIAudioEnd` fires at `response.done`, before WebRTC playback ends. The same review changed Stage 13a's trigger to "no transcription event", not "no text", so empty transcripts from coughs or echo don't blame the model. It also added a Chrome re-run of the transcription test, with `session.updated` logged, before 13b.
+
 **Verified:** Docs only. Checked that nothing in `js/` mutes the mic today (`app.js`'s only keyboard shortcut is Escape for modals).
 
 ## 2026-11-24 — Session length planned as a minute-precise number field, 1–60
