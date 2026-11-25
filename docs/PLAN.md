@@ -16,17 +16,19 @@ Updated 2026-11-24, after the live test (DECISIONS: neither transcription replac
 1. **Stage 13: transcription after `gpt-4o-transcribe`.** Deadline-driven: the model shuts down
    2027-02-26 and the tripwire fires 2027-01-27. First the silent-failure detection (13a), then
    the replacement design (13b).
-2. **Stage 3b:** pick the default voice. A preference call; all three voices passed.
-3. **Stage 3c:** prompt behavior. Add a repeat/slow-down rule, and settle the persona's name and
+2. **Stage 14: manual mic mute, with a hotkey.** Small, and it fixes a real annoyance from live
+   use. It builds the mute mechanism that issue #9 needs too.
+3. **Stage 3b:** pick the default voice. A preference call; all three voices passed.
+4. **Stage 3c:** prompt behavior. Add a repeat/slow-down rule, and settle the persona's name and
    gender.
-4. **Stage 4:** time-to-first-audio metric.
-5. **Stage 5:** data-loss fixes and cleanup, now including desktop toast styling. This also
+5. **Stage 4:** time-to-first-audio metric.
+6. **Stage 5:** data-loss fixes and cleanup, now including desktop toast styling. This also
    builds the `app.js` test harness, which Stage 8 needs.
-6. ⭐ **Stage 8: bring vocabulary practice back.** It's hidden, not abandoned; see below.
-7. **User-requested features:** Stage 9 (listening mode), Stage 10 (dialect selection), Stage
+7. ⭐ **Stage 8: bring vocabulary practice back.** It's hidden, not abandoned; see below.
+8. **User-requested features:** Stage 9 (listening mode), Stage 10 (dialect selection), Stage
    11 (text input alongside voice), Stage 12 (performance feedback, opt-in). They're listed in
    the order requested; the user sets the order.
-8. **Stages 6–7:** external TTS spike and evaluation. Deprioritized: the live test found the
+9. **Stages 6–7:** external TTS spike and evaluation. Deprioritized: the live test found the
    native voices acceptable. Revisit if voice quality becomes a complaint again.
 
 ---
@@ -374,6 +376,36 @@ pages first (they change), then compare:
 Each candidate is live-tested in a spike branch before it's chosen. Record the choice in
 DECISIONS, change `DEFAULT_MODELS.transcription` or the session design (with tests), and remove
 the `KNOWN_SHUTDOWNS` entry only once the old model is no longer used.
+
+## Stage 14 — Manual mic mute, with a hotkey ⬜ (user request, 2026-11-24)
+
+**Why:** server VAD treats any sound as the learner starting to talk. Clearing your throat or
+coughing makes the tutor (which backs off readily) stop mid-sentence and wait. The learner
+usually feels it coming, so a mute they control beats tuning VAD.
+
+**Mechanism:** set the mic track's `enabled` to `false`. WebRTC then sends silence, so the
+server hears nothing and VAD doesn't fire. No API call, no reconnect, and the tutor keeps
+talking. Muting during your own turn sends silence, which ends that turn as a normal pause would.
+
+- `session.js`: `setMicMuted(muted)` and `isMicMuted()`, so `app.js` never reaches into
+  `mediaStream`. The mute must **survive an auto-reconnect**: the new mic track starts muted if
+  the learner had muted. Design it so issue #9's automatic mute during playback can share it:
+  the mic is live only when neither the learner nor the automatic rule has muted it.
+- UI: a mute button in the session view with an obvious muted state (icon plus text, not color
+  alone; `aria-pressed`). Muting resets when a session ends.
+- **Hotkey:** a toggle by default, assignable in Settings, saved in config. Ignore it while
+  focus is in a text field, which Stage 11's text box makes matter. Default key to be decided
+  with the user. Space is the obvious one but scrolls the page and clashes with typing; `M` is
+  safer. A hold-to-mute variant (muted only while the key is held) suits throat-clearing and
+  can be offered alongside.
+- Tests first (`realtime-session.test.js`, plus a small pure keyboard-shortcut module so the
+  key handling is testable without the `app.js` harness): mute disables every audio track and
+  unmute restores it; mute before connect, after disconnect, and across a reconnect; the hotkey
+  toggles, is ignored in inputs and with modifier keys, and a rebinding persists.
+- Live check (TESTING): clear your throat while muted, and the tutor keeps talking.
+
+**Related:** issue #9 (automatic mute during AI playback, as an echo workaround) uses the same
+mechanism; do it here or straight after.
 
 ## Stage 6 — External TTS spike ⏸ (`experiment/external-tts`; deprioritized 2026-11-24: native voices passed the live test)
 

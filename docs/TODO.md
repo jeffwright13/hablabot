@@ -18,6 +18,8 @@ console and reload.
   (11a), and later a text-only session with no microphone (11b).
 - **Performance feedback:** PLAN Stage 12. Opt-in reply speed and accuracy, for voice and text.
 - Also: listening mode (Stage 9) and dialect selection (Stage 10).
+- **Manual mic mute with an assignable hotkey:** PLAN Stage 14. For coughs and throat-clearing
+  that would otherwise make the tutor stop and listen.
 
 ## Product questions (they block PLAN Stage 6)
 
@@ -47,7 +49,7 @@ rest are still open.
 
 - **#9: Mute the mic during AI playback** (a workaround for echo when not using a headset).
   Becomes important if an external TTS is adopted, because its audio may not be covered by
-  WebRTC echo cancellation.
+  WebRTC echo cancellation. Shares the mute mechanism with PLAN Stage 14 (manual mute).
 - **#10: Configurable mother tongue and persona guidance** for beginners who mix English and
   Spanish.
 - **#11: Try a TURN server** to fix the Firefox-specific WebRTC disconnects.

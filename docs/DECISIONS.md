@@ -974,3 +974,10 @@ BRIEF's "voice is required" constraint now notes typed input as an alternative, 
 - **A noisy warning.** "conversation.item.done had no recognizable transcript field" fires on every user turn, even with `gpt-4o-transcribe`, because `transcript: null` in `item.done` is normal; the transcript arrives in a later event. Scheduled in Stage 13.
 
 **Verified:** Live test only, run by the user with their own key (Firefox, v0.5.0, GitHub Pages). The console logs pasted from both transcription runs show the signature above. Afterwards the user cleared the override, and the placeholder showed `gpt-4o-transcribe` again. No code changed.
+
+## 2026-11-24 — Manual mic mute planned, by disabling the mic track
+**Decision:** The user's request for a manual mute button, with an assignable hotkey, is scheduled as PLAN Stage 14, near the top of the queue. The mechanism is to set the mic `MediaStreamTrack`'s `enabled` to `false` through a new `RealtimeSession.setMicMuted()`. The mute survives reconnects, and it's shared with issue #9's automatic mute during playback (live only when neither has muted it).
+
+**Rationale:** The user wants to mute pre-emptively before clearing their throat, because server VAD otherwise reads it as speech and the tutor stops to listen. Disabling the track is the standard WebRTC way to send silence: it needs no Realtime API event and no reconnect, and it leaves barge-in untouched while unmuted. Alternatives considered: raising the VAD `threshold` (affects every turn, and quiet beginners would suffer); push-to-talk (a different interaction model, and BRIEF keeps hands-free conversation as the default). A hold-to-mute hotkey variant is noted as an option, because it fits a momentary cough well.
+
+**Verified:** Docs only. Checked that nothing in `js/` mutes the mic today (`app.js`'s only keyboard shortcut is Escape for modals).
