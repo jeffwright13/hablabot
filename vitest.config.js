@@ -23,21 +23,21 @@ export default defineConfig({
       // through; add the missing tests instead (see docs/TESTING.md).
       thresholds: {
         statements: 37,
-        branches: 81,
-        functions: 45,
+        branches: 82,
+        functions: 47,
         lines: 37,
         // The core conversation path is already well covered. A per-glob
         // floor stops a regression there from hiding behind the large,
         // untested files that dominate the global numbers. Vitest checks this
         // against the COMBINED figure for every file under js/realtime/
-        // (95.48 / 88.51 / 85.19 / 95.48 after Stage 3b), not any one file's
+        // (96.03 / 88.94 / 87.87 / 96.03 after Stages 3b + 13a), not any one file's
         // row in the report, so that combined figure is what gets rounded
         // down here.
         'js/realtime/**': {
-          statements: 95,
+          statements: 96,
           branches: 88,
-          functions: 85,
-          lines: 95,
+          functions: 87,
+          lines: 96,
         },
       },
     },

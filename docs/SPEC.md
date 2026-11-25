@@ -84,7 +84,10 @@ session.
 - The AI's text streams into `#ai-text` and is committed to the history once, when final. An
   identical consecutive final transcript is dropped (`_lastFinalAITranscript`).
 - User transcripts come from `conversation.item.input_audio_transcription.completed` or
-  `conversation.item.done`. Assistant-role items are skipped.
+  `conversation.item.done`. Assistant-role items are skipped. A user audio item normally arrives
+  with `transcript: null` (the transcript follows in its own event), which is not logged. Typed
+  `input_text` items are skipped quietly. Any other shape logs a console warning naming only the
+  content types, never the item's text.
 - Each turn is appended both to the on-screen history and to
   `currentSession.conversationHistory` (`{ speaker, text, timestamp }`).
 - Target-word usage: each user transcript is matched case-insensitively against the target
@@ -141,8 +144,17 @@ session.
 - **A transcription model this session type doesn't support fails silently** (live test,
   2026-11-24, `gpt-transcribe` and `gpt-live-transcribe`). `session.update` is accepted, the
   tutor still hears and answers, but every user item has `transcript: null` and no `completed`,
-  `failed` or `error` event arrives, so the learner's turns never reach the history. Nothing
-  detects this yet (PLAN Stage 13a).
+  `failed` or `error` event arrives, so the learner's turns never reach the history.
+- **Detection (Stage 13a):** each user audio item (`conversation.item.done`, content
+  `input_audio`) starts a 10 s wait (`TRANSCRIPT_TIMEOUT_MS`) for its transcription event. After
+  2 consecutive turns with no event (`MISSED_TRANSCRIPTS_BEFORE_WARNING`), the learner is told
+  once per connection, through `onError` (a toast): "Transcription model "<id>" returned nothing
+  for your last 2 turns… The tutor can still hear you. Change it in Settings → Advanced." It's
+  judged by the event, not the text: a `completed` with `""` (a cough, a VAD false start) or a
+  `failed` resets the count. A transcript that arrives before its `item.done`, or inside it,
+  counts. Pending waits are cleared on disconnect, and each connection starts a fresh count.
+- `session.updated` is logged with the transcription settings the server confirms
+  (`server confirmed input transcription = …`, or `none`).
 
 ## 5. Settings
 
@@ -236,7 +248,8 @@ drop-in for this app's session. That's per their model pages, and **confirmed by
 `/v1/live/sessions`. The redesign options are in `PLAN.md` Stage 13.
 
 The model-rejection message above covers only models the API *rejects*. One it accepts but
-doesn't use for this session type gives no error (§4).
+doesn't use for this session type gives no error; the silent-failure detection in §4 covers
+that case.
 
 ## 8. Offline / PWA
 

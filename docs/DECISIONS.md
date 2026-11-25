@@ -1043,3 +1043,30 @@ Full suite 162/162. Coverage is unchanged (CSS isn't counted). Browser check in 
 - Rejected: running the live project in CI. It costs money, needs a secret, and needs macOS's `say`.
 
 **Verified:** `npm run test:browser`: 15/15 in Chromium 1.65 on macOS. The idle-mic test failed first (silence), then passed with the noise floor. The phone toast test asserts the known bug (toasts over the header) until PLAN Stage 5 fixes it; after review it replaced a `test.fail()`, which would also have passed on a broken selector. Also from review: the `live` project's config turns tracing off as well as its fixture, the server port is 47231 and never reused (4173 is `vite preview`'s default), and the idle-noise and cough mic tests run in CI (only the phrase test needs `say`). `npm run test:live` (user-approved runs): run 2 failed on the first phrase as described; run 3, after the fixes, passed in 1.4 min: the greeting, four phrases each transcribed and answered, a cough with no warning, the defaults (`marin`, the default transcription model) in `session.update`, and End Session saved the turns. No key-like string in the run's output files. Vitest is unchanged (162/162); it collects only `*.test.js`.
+
+## 2026-11-25 — Silent transcription failure detected by missing events (PLAN Stage 13a)
+**Decision:** `js/realtime/session.js` now watches for transcription events.
+- Each user audio item (`conversation.item.done` with `input_audio` content) starts a `TRANSCRIPT_TIMEOUT_MS` (10 000) wait for its `…input_audio_transcription.completed` or `.failed` event.
+- After `MISSED_TRANSCRIPTS_BEFORE_WARNING` (2) consecutive misses, `onError` gets a message naming the transcription model and pointing to Settings → Advanced, once per connection. It goes through `onError` because that's the toast path `app.js` already has; the wording avoids "invalid" and "401", which make `app.js` jump to Settings.
+- Any transcription event resets the count, `completed` with `""` included. Early transcripts (event before `item.done`) are remembered, capped at `EARLY_TRANSCRIPT_MEMORY` (20) IDs. Pending waits are cleared in `_teardown()`, and `connect()` resets everything (`_resetTranscriptionWatch()`).
+- Also:
+  - the "had no recognizable transcript field" warning is gone for `transcript: null` audio items (normal) and for typed `input_text` items;
+  - an unrecognized user-item shape still warns, naming only the content types (the old warning logged the whole item, the learner's words included);
+  - `session.updated` now logs the transcription settings the server confirms.
+
+**Rationale:** The 2026-11-24 live test showed an accepted-but-unused transcription model produces no event at all, so nothing told the learner why their turns weren't appearing. Counting events rather than non-empty text follows the PR #21 review: coughs, VAD false starts and issue #9's echo loop give real turns an empty transcript, and that isn't a model failure. Two turns, not one, because a single dropped transcription event is plausible on a bad network and shouldn't blame the model. 10 s is generous for a transcript that normally lands within a second or two; at worst the warning comes about 20 s into a session. Alternatives rejected:
+- warning on the first miss (too jumpy);
+- keying off `input_audio_buffer.speech_stopped` (a VAD stop with no committed item would count as a turn);
+- a separate module (it would need its own script tag, precache entry and cache bump, for about 60 lines that only `session.js` uses).
+
+**Verified:** 17 new or rewritten tests in `tests/realtime-session.test.js`, using fake timers. They failed first: 9 because the constants, the warning and the logging didn't exist, and the bounded-memory test before the cap was added. The rest passed from the start, because they check that nothing fires. They cover:
+- the warning after 2 misses, once only, and never after 1;
+- resets by an empty `completed` and by `failed`;
+- a transcript just inside the timeout, one before its `item.done`, and one inside it;
+- assistant and typed items ignored;
+- nothing firing after disconnect, and a fresh count per connection;
+- the bounded memory;
+- the quiet and unrecognized-shape warning cases;
+- both `session.updated` log forms.
+
+Full suite 171/171 after rebasing onto Stage 3b. Coverage minimums raised: global 37 / 82 / 47 / 37, `js/realtime/**` 96 / 88 / 87 / 96. **Live check still to do** (PLAN 13a's Chrome re-run): `gpt-transcribe` should warn after 2 turns and log what the server confirmed; the default model should not warn.

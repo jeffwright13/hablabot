@@ -80,8 +80,9 @@ rest are still open.
   been confirmed on every platform.
 - **There are no request timeouts** in `RealtimeSession.connect()`. A hung `client_secrets` or SDP
   request would leave the status at "connecting" with no way out except reloading.
-- **Failed transcriptions are invisible to the learner** (console only), and a transcription
-  model the session doesn't support fails with no event at all. Detection is PLAN Stage 13a.
+- **Per-turn transcription failures are console-only** (`…transcription.failed` that doesn't name
+  the model). A model that never transcribes is now detected (PLAN Stage 13a, SPEC §4), but a
+  single failed turn still just goes missing from the history.
 - **Reconnects lose the model's memory of the conversation.** Replaying `conversationHistory`
   into the new session is possible now that user transcripts work, but hasn't been designed.
 - **Profile cards insert `user.avatar` and `user.id` into `innerHTML`/`onclick` without escaping**

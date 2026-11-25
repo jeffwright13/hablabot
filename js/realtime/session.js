@@ -24,6 +24,17 @@
 // for exactly what changed and what's still best-effort (the transcription
 // event's payload shape wasn't confirmed verbatim from docs).
 
+// Silent transcription failure (PLAN Stage 13a). A transcription model the
+// session accepts but doesn't use sends no transcription event at all: no
+// completed, no failed, no error (live test, 2026-11-24). The learner's
+// turns then never reach the history. After this many consecutive user
+// turns with no transcription event within the timeout, warn once.
+const TRANSCRIPT_TIMEOUT_MS = 10000;
+const MISSED_TRANSCRIPTS_BEFORE_WARNING = 2;
+// Transcripts can arrive before their item.done; remember that many recent
+// item IDs so a long session doesn't grow the set without bound.
+const EARLY_TRANSCRIPT_MEMORY = 20;
+
 class RealtimeSession {
   constructor() {
     this.pc = null;          // RTCPeerConnection
@@ -53,6 +64,7 @@ class RealtimeSession {
     // A rejected transcription model fails every user turn; tell the user
     // once per connection, not on every turn.
     this._transcriptionModelErrorReported = false;
+    this._resetTranscriptionWatch();
 
     // Internal
     this._autoGreet = true;
@@ -122,6 +134,7 @@ class RealtimeSession {
     this._sessionConfigured = false;
     this._models = this._resolveModels(options);
     this._transcriptionModelErrorReported = false;
+    this._resetTranscriptionWatch();
 
     try {
       this._setStatus(_isReconnect ? 'reconnecting' : 'connecting');
@@ -405,6 +418,65 @@ class RealtimeSession {
     this.isConnected = false;
     this.isSpeaking = false;
     this._connectedAt = null;
+    this._clearTranscriptTimers();
+  }
+
+  // --- Silent transcription failure detection (PLAN Stage 13a) ---
+  // Judged by whether a transcription EVENT arrives (completed or failed),
+  // not by non-empty text: a cough or a VAD false start legitimately
+  // completes with "" and says nothing about the model.
+
+  _resetTranscriptionWatch() {
+    this._clearTranscriptTimers();
+    this._transcriptTimers = new Map();   // item id -> timeout handle
+    this._transcribedItemIds = new Set(); // ids whose event arrived first
+    this._missedTranscripts = 0;
+    this._silentTranscriptionReported = false;
+  }
+
+  _clearTranscriptTimers() {
+    if (!this._transcriptTimers) return;
+    for (const handle of this._transcriptTimers.values()) clearTimeout(handle);
+    this._transcriptTimers.clear();
+  }
+
+  // A user audio item finished; its transcription event should follow.
+  _awaitTranscript(itemId) {
+    if (!itemId || this._transcriptTimers.has(itemId)) return;
+    if (this._transcribedItemIds.delete(itemId)) return; // already arrived
+    const handle = setTimeout(() => this._onTranscriptMissed(itemId), TRANSCRIPT_TIMEOUT_MS);
+    this._transcriptTimers.set(itemId, handle);
+  }
+
+  // A transcription event (completed, even with "", or failed) arrived.
+  _transcriptArrived(itemId) {
+    this._missedTranscripts = 0;
+    if (!itemId) return;
+    const handle = this._transcriptTimers.get(itemId);
+    if (handle !== undefined) {
+      clearTimeout(handle);
+      this._transcriptTimers.delete(itemId);
+    } else {
+      this._transcribedItemIds.add(itemId);
+      if (this._transcribedItemIds.size > EARLY_TRANSCRIPT_MEMORY) {
+        // Sets iterate in insertion order, so this drops the oldest.
+        this._transcribedItemIds.delete(this._transcribedItemIds.values().next().value);
+      }
+    }
+  }
+
+  _onTranscriptMissed(itemId) {
+    this._transcriptTimers.delete(itemId);
+    this._missedTranscripts += 1;
+    if (this._missedTranscripts < MISSED_TRANSCRIPTS_BEFORE_WARNING || this._silentTranscriptionReported) return;
+    this._silentTranscriptionReported = true;
+    const model = this._models?.transcription;
+    const named = model ? `Transcription model "${model}"` : 'The transcription model';
+    const message = `${named} returned nothing for your last ${this._missedTranscripts} turns, `
+      + 'so they won\'t appear in the history (it may not support this kind of session). '
+      + 'The tutor can still hear you. Change it in Settings → Advanced.';
+    console.warn('RealtimeSession: no transcription event for', this._missedTranscripts, 'consecutive user turns');
+    if (this.onError) this.onError(message);
   }
 
   // Diagnostic only — logs candidate-pair and packet-count stats at the
@@ -532,20 +604,43 @@ class RealtimeSession {
     if (this.onStatusChange) this.onStatusChange(status, meta);
   }
 
+  // A user conversation.item.done. Audio items normally arrive with
+  // transcript: null (the transcription follows in its own event), so start
+  // waiting for it. Typed (input_text) items need nothing. Anything else is a
+  // shape this code doesn't know: warn, but without logging the item, which
+  // holds the learner's words.
+  _trackUserItem(item, transcript) {
+    const content = Array.isArray(item?.content) ? item.content : [];
+    if (content.some(c => c.type === 'input_audio')) {
+      if (transcript) this._transcriptArrived(item.id);
+      else this._awaitTranscript(item.id);
+    } else if (!content.some(c => c.type === 'input_text')) {
+      console.warn('RealtimeSession: conversation.item.done for a user item of an unrecognized shape; content types:',
+        content.map(c => c.type).join(', ') || 'none');
+    }
+  }
+
   _handleMessage(msg) {
     switch (msg.type) {
       case 'session.created':
         console.log('RealtimeSession: session created');
         break;
 
-      case 'session.updated':
+      case 'session.updated': {
         console.log('RealtimeSession: session configured');
+        // What the server actually kept, not what was requested: the
+        // 2026-11-24 live test couldn't tell whether an unsupported
+        // transcription model was accepted or quietly dropped.
+        const transcription = msg.session?.audio?.input?.transcription;
+        console.log('RealtimeSession: server confirmed input transcription =',
+          transcription ? JSON.stringify(transcription) : 'none');
         // Trigger the opening greeting once, after the session is fully configured.
         if (this._autoGreet && !this._sessionConfigured) {
           this._sessionConfigured = true;
           this._send({ type: 'response.create' });
         }
         break;
+      }
 
       // Diagnostic: logged explicitly so a mid-response audio cutoff can be
       // checked against whether server VAD falsely detected the user
@@ -563,7 +658,9 @@ class RealtimeSession {
       // OpenAI renamed this event to 'conversation.item.done' as part of the
       // same migration; the exact payload shape wasn't confirmed verbatim from
       // docs, so this checks a couple of plausible locations for the
-      // transcript and warns rather than silently dropping the user's turn.
+      // transcript. A user audio item normally arrives with transcript: null
+      // and its transcript follows in .completed; _trackUserItem() waits for
+      // that and warns if it never comes (Stage 13a).
       // Kept the old event name too in case it's still emitted for back-compat.
       //
       // conversation.item.done fires for BOTH user and assistant items --
@@ -581,10 +678,13 @@ class RealtimeSession {
         if (msg.item?.role === 'assistant') break;
         const transcript = msg.transcript
           || msg.item?.content?.find(c => c.transcript)?.transcript;
+        if (msg.type === 'conversation.item.input_audio_transcription.completed') {
+          this._transcriptArrived(msg.item_id); // even when "" (Stage 13a)
+        } else {
+          this._trackUserItem(msg.item, transcript);
+        }
         if (transcript && this.onUserTranscript) {
           this.onUserTranscript(transcript.trim());
-        } else if (msg.type === 'conversation.item.done') {
-          console.warn('RealtimeSession: conversation.item.done had no recognizable transcript field', JSON.stringify(msg));
         }
         break;
       }
@@ -596,6 +696,7 @@ class RealtimeSession {
       // see this even if it was the actual cause the whole time.
       case 'conversation.item.input_audio_transcription.failed': {
         console.error('RealtimeSession: input audio transcription failed', JSON.stringify(msg.error || msg));
+        this._transcriptArrived(msg.item_id);
         // Most failures are per-turn (e.g. unusable audio) and stay
         // console-only. One that names the transcription model means every
         // turn will fail, so tell the user, once per connection.
@@ -654,6 +755,10 @@ class RealtimeSession {
     }
   }
 }
+
+RealtimeSession.TRANSCRIPT_TIMEOUT_MS = TRANSCRIPT_TIMEOUT_MS;
+RealtimeSession.MISSED_TRANSCRIPTS_BEFORE_WARNING = MISSED_TRANSCRIPTS_BEFORE_WARNING;
+RealtimeSession.EARLY_TRANSCRIPT_MEMORY = EARLY_TRANSCRIPT_MEMORY;
 
 window.HablaBotRealtimeSession = new RealtimeSession();
 

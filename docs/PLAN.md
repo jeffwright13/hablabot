@@ -384,7 +384,8 @@ The live test (DECISIONS 2026-11-24) showed that neither documented replacement 
 app's WebRTC + server-VAD session, and that the failure is **silent**: no error, just
 `transcript: null` on every user turn.
 
-**13a. Make a silent transcription failure visible (first; small).** Tests first in
+**13a. Make a silent transcription failure visible 🔨 (built 2026-11-25; the Chrome re-run below is
+still to do).** Tests first in
 `realtime-session.test.js`, with simulated event sequences:
 - After 2 consecutive user turns (VAD `speech_stopped` plus the user `conversation.item.done`)
   for which **no transcription event arrives** (neither

@@ -45,7 +45,7 @@ Current coverage, by module:
 
 | Module | Test file | Notes |
 |---|---|---|
-| `js/realtime/session.js` | `realtime-session.test.js` | connect payloads, reconnects, transcript extraction, de-duplication, diagnostics |
+| `js/realtime/session.js` | `realtime-session.test.js` | connect payloads, reconnects, transcript extraction, de-duplication, diagnostics, silent transcription-failure detection (fake timers) |
 | `js/realtime/turn-profiles.js` | `turn-profiles.test.js` | |
 | `js/realtime/session-vocab-bridge.js` | `session-vocab-bridge.test.js` | |
 | `js/vocabulary/manager.js` | `vocabulary-manager.test.js` | |
@@ -77,8 +77,8 @@ branches and 90% everything else.
 
 | Scope | Statements | Branches | Functions | Lines | Set |
 |---|---|---|---|---|---|
-| All shipped `js/**` (excluding the unloaded `js/speech/`) | 37 | 81 | 45 | 37 | Stage 3b (2026-11-25): 37 / 81.4 / 45.69 / 37. Baseline was 30 / 78.37 / 35.82 / 30 |
-| `js/realtime/**` | 95 | 88 | 85 | 95 | Stage 3b (2026-11-25): 95.48 / 88.51 / 85.19 / 95.48. Baseline was 94.53 / 87.06 / 83.33 / 94.53 |
+| All shipped `js/**` (excluding the unloaded `js/speech/`) | 37 | 82 | 47 | 37 | Stages 3b + 13a (2026-11-25): 37.98 / 82.43 / 47.77 / 37.98. Baseline was 30 / 78.37 / 35.82 / 30 |
+| `js/realtime/**` | 96 | 88 | 87 | 96 | Stages 3b + 13a (2026-11-25): 96.03 / 88.94 / 87.87 / 96.03. Baseline was 94.53 / 87.06 / 83.33 / 94.53 |
 
 The global numbers are low because `app.js`, `database.js`, `user-manager.js`, `js/ui/*` and the
 dead `audio.js` have no tests. Branch coverage looks high only because untested
@@ -170,7 +170,11 @@ before.
 - [ ] Beginner: a 2-second thinking pause doesn't trigger a reply. Advanced: replies come quickly.
 - [ ] User and AI transcripts each appear exactly once, with the correct speaker. **Check your
       own turns especially:** a transcription model the session doesn't support gives no error
-      at all, just a conversation where only the tutor's lines appear (SPEC §4).
+      event at all. Since Stage 13a the app warns after 2 such turns (a toast naming the model;
+      ~20 s in). The console's `server confirmed input transcription =` line shows what the
+      server kept (SPEC §4).
+- [ ] With the default transcription model, ~5 turns, including a cough: no "returned nothing"
+      warning, and no "unrecognized shape" warnings in the console.
 - [ ] Barge-in: talking over the tutor stops its audio.
 - [ ] The tutor keeps a consistent Mexican accent and vocabulary (e.g. says "departamento", not
       "piso" or "apartamento") across turns and difficulties, and never speaks stage directions.
