@@ -14,21 +14,27 @@ its code. Mark stages done here as they merge, and move the reasoning into `DECI
 Feature requests not yet in this queue are listed in `TODO.md` → Feature requests, each with
 its stage.
 
-Updated 2026-11-24, after v0.4.0.
+Updated 2026-11-24, after the live test (DECISIONS: neither transcription replacement works).
 
-1. **Needs the user at a microphone:** the transcription live test (`TODO.md`, deadline
-   2027-02-26) and the Stage 3b voice comparison. Both can be done in one sitting.
-2. **Stage 3c:** prompt behavior. Add a repeat/slow-down rule, and settle the persona's name and
+1. **Stage 13: transcription after `gpt-4o-transcribe`.** Deadline-driven: the model shuts down
+   2027-02-26 and the tripwire fires 2027-01-27. First the silent-failure detection (13a), then
+   the replacement design (13b).
+2. **Stage 14: manual mic mute, with a hotkey.** Small, and it fixes a real annoyance from live
+   use. It builds the mute mechanism that issue #9 needs too.
+3. **Stage 15: session length to the minute.** Small; it can share a branch with Stage 14 or
+   go straight after it.
+4. **Stage 3b:** pick the default voice. A preference call; all three voices passed.
+5. **Stage 3c:** prompt behavior. Add a repeat/slow-down rule, and settle the persona's name and
    gender.
-3. **Stage 4:** time-to-first-audio metric.
-4. **Stage 5:** data-loss fixes and cleanup. This also builds the `app.js` test harness, which
-   Stage 8 needs.
-5. ⭐ **Stage 8: bring vocabulary practice back.** It's hidden, not abandoned; see below.
-6. **User-requested features:** Stage 9 (listening mode), Stage 10 (dialect selection), Stage
+6. **Stage 4:** time-to-first-audio metric.
+7. **Stage 5:** data-loss fixes and cleanup, now including desktop toast styling. This also
+   builds the `app.js` test harness, which Stage 8 needs.
+8. ⭐ **Stage 8: bring vocabulary practice back.** It's hidden, not abandoned; see below.
+9. **User-requested features:** Stage 9 (listening mode), Stage 10 (dialect selection), Stage
    11 (text input alongside voice), Stage 12 (performance feedback, opt-in). They're listed in
    the order requested; the user sets the order.
-7. **Stages 6–7:** external TTS spike and evaluation, if the voice comparison and `gpt-live-1.1`
-   don't settle voice quality.
+10. **Stages 6–7:** external TTS spike and evaluation. Deprioritized: the live test found the
+   native voices acceptable. Revisit if voice quality becomes a complaint again.
 
 ---
 
@@ -143,7 +149,7 @@ DECISIONS entry; SPEC §5 and §7; CLAUDE.md model rule.
   `Config` defaults (`freshDefaults()`).
 - Coverage minimums raised: global 36/80/43/36, `js/realtime/` 95/88/84/95.
 
-## Stage 3 — Voice A/B and prompt 🔨 (3a ✅ in v0.4.0; 3b waits on the user; 3c not started)
+## Stage 3 — Voice A/B and prompt 🔨 (3a ✅ in v0.4.0, accent confirmed live; 3b voices compared, default not yet chosen; 3c not started)
 
 Split into two parts, because the dialect is decided but the voice isn't:
 
@@ -172,11 +178,13 @@ Split into two parts, because the dialect is decided but the voice isn't:
   vecindario). These now use mesero/a, estadía, departamento, renta, depósito, recámara and
   colonia. The new test caught one more `fianza`, in an advanced starter.
 
-**3b. Choose the voice (waits for the listening comparison).**
-0. With no code change, and after 3a lands, listen to `alloy`, `marin` and `cedar` at speeds 0.9
-   and 1.0 in Chrome, on the same scenario. Then answer the postponed "what sounds wrong"
-   question in `TODO.md`.
-1. `config.js`: change the default voice to whichever wins (test in `config.test.js`).
+**3b. Choose the voice 🔨 (comparison done 2026-11-24; default not yet chosen).**
+0. ✅ Listening comparison. The user heard `alloy`, `marin` and `cedar` in live sessions (Firefox,
+   v0.5.0) and found none of them bothersome (DECISIONS 2026-11-24). Not done: the separate 0.9
+   vs 1.0 speed comparison. It didn't seem needed.
+1. `config.js`: change the default voice from `alloy`, test first in `config.test.js`. The UI
+   already labels `marin` and `cedar` "recommended", so one of them is the natural choice. It's
+   the user's pick. Bear in mind 3c: the voice sets the persona's apparent gender.
 
 **3c. Prompt behavior ⬜ (from the user's 2026-11-24 live session).**
 - **Repeat/slow-down rule.** When the learner says "otra vez", "más despacio", "¿cómo?", "no
@@ -212,11 +220,18 @@ Split into two parts, because the dialect is decided but the voice isn't:
 - **Not in scope here:** `js/vocabulary/*`, the vocabulary UI in `components.js`, and the
   session-vocab bridge. They're hidden, not dead; Stage 8 revives them.
 - Remove the dead code and settings. The exact list will be confirmed before deleting:
-  `js/speech/*`, `js/utils/audio.js`, the unused config keys (SPEC §5), and the never-called
+  `js/speech/*`, `js/utils/audio.js`, the unused config keys (SPEC §5; **not** `sessionLength`,
+  which Stage 15 puts to use), and the never-called
   `prompts.js` helpers `getConversationStarters()`/`getAllConversationStarters()`,
   `generateFollowUp()` and `getVocabularyIntegration()` (PR #18 review), along with the
   starter half of the dialect tests.
 - Fix the "Hold the microphone button" toast and escape the profile-card fields.
+- **Style toasts on desktop** (found 2026-11-24). Every `.toast`/`.toast-container` rule is
+  inside `mobile.css`'s `@media (max-width: 768px)`, so on a desktop toasts, error toasts
+  included, render as unstyled text at the bottom of the page. Add base rules (fixed position;
+  success, warning and error colors). Test first by reading the CSS text, as
+  `version-label-contrast.test.js` does: rules exist outside the media query, and each status
+  color meets WCAG AA contrast in both color schemes.
 
 ## Stage 8 — Bring vocabulary practice back ⭐ ⬜ (near-to-mid term)
 
@@ -352,7 +367,110 @@ text input.
   HablaBot is for (BRIEF). So: **off by default, private, and shown as trends over sessions,
   not grades.**
 
-## Stage 6 — External TTS spike ⏸ (`experiment/external-tts`; key-handling answer needed)
+## Stage 13 — Transcription after `gpt-4o-transcribe` ⬜ (deadline 2027-02-26; tripwire 2027-01-27)
+
+The live test (DECISIONS 2026-11-24) showed that neither documented replacement works in this
+app's WebRTC + server-VAD session, and that the failure is **silent**: no error, just
+`transcript: null` on every user turn.
+
+**13a. Make a silent transcription failure visible (first; small).** Tests first in
+`realtime-session.test.js`, with simulated event sequences:
+- After 2 consecutive user turns (VAD `speech_stopped` plus the user `conversation.item.done`)
+  for which **no transcription event arrives** (neither
+  `conversation.item.input_audio_transcription.completed` nor `.failed`) within a timeout (to
+  be named; ~10 s), notify the learner **once per connection**, naming the transcription model
+  and pointing to Settings → Advanced. That's exactly the live test's signature. Judge by the
+  *event*, not by non-empty text (PR #21 review): coughs, VAD false starts and issue #9's echo
+  loop give real turns an empty transcript, and that's not a model failure. So:
+  - a `completed` event resets the count, **even with `""`** (its own test case);
+  - `.failed` is already reported separately, so it resets the count too;
+  - a late event just inside the timeout doesn't trigger the warning.
+  Pass the timer in, as with `fetchFn`.
+- Remove the "conversation.item.done had no recognizable transcript field" warning when the
+  transcript is `null` (normal: it arrives later). Keep it for a genuinely unrecognized shape.
+- Log the `session.updated` event's transcription settings, so a future live test shows
+  whether the server kept the requested model.
+- SPEC §4 and §7: document the silent-failure case and its detection.
+- **Then re-run the live test in Chrome** (the reference browser), with the new `session.updated`
+  log line, for `gpt-transcribe` and `gpt-live-transcribe`. The 2026-11-24 evidence is one Firefox
+  run with that payload unlogged. The failure is almost certainly server-side, but 13b's
+  premise should rest on the reference browser and the logged payload (PR #21 review). Two
+  minutes per model; record the result in DECISIONS.
+
+**13b. Choose and build the replacement.** Re-read OpenAI's models, deprecations and Realtime
+pages first (they change), then compare:
+1. **A second, transcription-only Realtime session** fed the same mic track, using
+   `gpt-live-transcribe` or `gpt-realtime-whisper` (the documented home for both). Costs a
+   second connection and token per session; turns must be matched to the conversation's.
+2. **A WebSocket `gpt-transcribe` session** with manual commits driven by the conversation's
+   VAD events. Needs the app to stream audio over a WebSocket itself.
+3. **Move the conversation to `gpt-live-1.1`** (`/v1/live/sessions`), which claims better
+   transcription and a more consistent accent. Biggest change; evaluate with Stage 7.
+4. **Wait for OpenAI** to support a replacement in WebRTC sessions. Only viable if it happens
+   well before 2027-01-27; not a plan by itself.
+Each candidate is live-tested in a spike branch before it's chosen. Record the choice in
+DECISIONS, change `DEFAULT_MODELS.transcription` or the session design (with tests), and remove
+the `KNOWN_SHUTDOWNS` entry only once the old model is no longer used.
+
+## Stage 14 — Manual mic mute, with a hotkey ⬜ (user request, 2026-11-24)
+
+**Why:** server VAD treats any sound as the learner starting to talk. Clearing your throat or
+coughing makes the tutor (which backs off readily) stop mid-sentence and wait. The learner
+usually feels it coming, so a mute they control beats tuning VAD.
+
+**Mechanism:** set the mic track's `enabled` to `false`. WebRTC then sends silence, so the
+server hears nothing and VAD doesn't fire. No API call, no reconnect, and the tutor keeps
+talking. Muting during your own turn sends silence, which ends that turn as a normal pause would.
+
+- `session.js`: `setMicMuted(muted)` and `isMicMuted()`, so `app.js` never reaches into
+  `mediaStream`. The mute must **survive an auto-reconnect**: the new mic track starts muted if
+  the learner had muted. Design it so issue #9's automatic mute during playback can share it:
+  the mic is live only when neither the learner nor the automatic rule has muted it.
+- UI: a mute button in the session view with an obvious muted state (icon plus text, not color
+  alone; `aria-pressed`). Muting resets when a session ends.
+- **Hotkey:** a toggle by default, assignable in Settings, saved in config. Ignore it while
+  focus is in a text field, which Stage 11's text box makes matter. Default key to be decided
+  with the user. Space is the obvious one but scrolls the page and clashes with typing; `M` is
+  safer. A hold-to-mute variant (muted only while the key is held) suits throat-clearing and
+  can be offered alongside.
+- Tests first (`realtime-session.test.js`, plus a small pure keyboard-shortcut module so the
+  key handling is testable without the `app.js` harness): mute disables every audio track and
+  unmute restores it; mute before connect, after disconnect, and across a reconnect; the hotkey
+  toggles, is ignored in inputs and with modifier keys, and a rebinding persists.
+- Live check (TESTING): clear your throat while muted, and the tutor keeps talking.
+
+**Related:** issue #9 (automatic mute during AI playback, as an echo workaround) uses the same
+mechanism; do it here or straight after. **Its timing must come from the playback state**
+(`output_audio_buffer.started` → `.stopped`, Stage 11a), not `onAIAudioStart`/`onAIAudioEnd`
+as the issue's sketch says. `onAIAudioEnd` fires at `response.done`, which over WebRTC comes
+before playback ends, so unmuting there lets the echo tail retrigger VAD: the very loop #9 is
+meant to stop (PR #21 review). If Stage 11a hasn't landed first, this stage builds that state. **If built, it must be a Settings toggle, default
+off** (user, 2026-11-24: "it might be lame"). It disables barge-in while the tutor talks, so
+it's an escape hatch for setups without a headset, not a default. Issue #9 already proposes
+exactly this, with the caveat shown next to the toggle.
+
+## Stage 15 — Session length to the minute ⬜ (user request, 2026-11-24)
+
+**Today:** a range slider on the start screen (`index.html` `#session-length`, 5–30 in steps of
+5, default 15). The value isn't saved: `config.sessionLength` exists but nothing reads it, so
+every reload goes back to 15. The user finds 5-minute steps too coarse, and a slider a poor
+control for picking an exact number.
+
+**Proposal:** replace the slider with a **number field in whole minutes**, with − and + buttons
+for touch screens, and optionally a few one-tap presets (5 / 10 / 15 / 30).
+- Range **1–60 minutes.** 60 is OpenAI's documented maximum Realtime session length (DECISIONS
+  2026-07-22). Re-check that limit when building this; if it has changed, the cap changes with it.
+- **Remember the last value** in `config.sessionLength` (wiring up the leftover key rather than
+  deleting it). Change `validateSettings()` from 5–60 to 1–60, and remove the per-profile
+  `sessionLength: 15` in `user-manager.js` unless per-profile lengths are wanted.
+- Typed values are clamped and rounded on change (blank or invalid → the saved value), so the
+  timer never gets `NaN`. Note: `parseInt` of an empty field is `NaN` in JS, not an error.
+- Tests first: a small pure `parseSessionLength(input, fallback)` (bounds, decimals, blanks,
+  non-numbers) and the config validation and persistence (`config.test.js`). The `app.js`
+  wiring is a few lines; the timer's minute→second conversion is unchanged.
+- SPEC §2.1 and §5 updated in the same commit.
+
+## Stage 6 — External TTS spike ⏸ (`experiment/external-tts`; deprioritized 2026-11-24: native voices passed the live test)
 
 - New `js/tts/<provider>.js`: streams text in and audio out, can be stopped, and reports
   time-to-first-byte.

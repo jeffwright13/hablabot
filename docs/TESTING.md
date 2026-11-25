@@ -108,7 +108,9 @@ before.
       a session `HablaBotApp.currentSession.targetWords` is `[]` in the console. (The prompt
       itself travels over the WebRTC data channel, which DevTools' Network panel doesn't show.)
 - [ ] Beginner: a 2-second thinking pause doesn't trigger a reply. Advanced: replies come quickly.
-- [ ] User and AI transcripts each appear exactly once, with the correct speaker.
+- [ ] User and AI transcripts each appear exactly once, with the correct speaker. **Check your
+      own turns especially:** a transcription model the session doesn't support gives no error
+      at all, just a conversation where only the tutor's lines appear (SPEC §4).
 - [ ] Barge-in: talking over the tutor stops its audio.
 - [ ] The tutor keeps a consistent Mexican accent and vocabulary (e.g. says "departamento", not
       "piso" or "apartamento") across turns and difficulties, and never speaks stage directions.

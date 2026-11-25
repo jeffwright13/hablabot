@@ -956,3 +956,43 @@ BRIEF's "voice is required" constraint now notes typed input as an alternative, 
 Stages 4 and 12 now time from the `output_audio_buffer` events for the same reason. 11b is renamed "typed-only", since its output is still speech.
 
 **Verified:** Docs only. No feature code changed. The review's claims were checked by reading `session.js`: `isSpeaking` is set at the first delta and cleared at `response.done`, nothing handles `response.created` or `output_audio_buffer.*`, and an item with no `transcript` reaches the `console.warn` in the `conversation.item.done` handler.
+
+## 2026-11-24 — Live test: neither transcription replacement works; Mexican accent confirmed; all three voices acceptable
+**Decision:**
+- **Transcription:** keep `DEFAULT_MODELS.transcription = 'gpt-4o-transcribe'` for now. Neither documented replacement works as a drop-in, so replacing it is now a redesign, PLAN **Stage 13**, which must land before the 2027-02-26 shutdown (the tripwire fires on 2027-01-27). No `RETIRED_MODELS` entry is added for transcription.
+- **Accent:** Stage 3a's Mexican Spanish pin is confirmed by ear.
+- **Voice:** `alloy`, `marin` and `cedar` are all acceptable to the user. This answers the postponed "what sounds wrong with the current voice?" question: nothing, in this test. Stage 3b's default-voice change is now a small preference call, not a quality fix. Stages 6–7 (external TTS) lose their main motivation and drop to the end of the queue.
+
+**Rationale:** This was the user's 15-minute live test, run on v0.5.0 (the GitHub Pages build) in **Firefox** with `gpt-realtime-2.1`.
+- **Part 1, transcription**, for `gpt-live-transcribe` and then `gpt-transcribe`, each entered in Settings → Advanced. Both failed **silently**, with the same signature:
+  - the session connected and `session.update` was accepted (`session.updated` arrived; no `error` event);
+  - audio worked both ways, and the tutor understood and answered, because the realtime model hears the audio directly;
+  - every user turn's `conversation.item.done` had `content: [{ type: 'input_audio', transcript: null }]`, and no `conversation.item.input_audio_transcription.completed` or `.failed` event ever arrived. So the learner's turns never appeared in the history.
+
+  This matches the model pages read during Stage 2: `gpt-transcribe` is documented for Realtime only over WebSocket with manual commits, and `gpt-live-transcribe` only in transcription-only sessions. The `language`/`languages` caveat in TODO turned out not to matter: there was no field error to read. **Caveat:** the app doesn't log the `session.updated` payload, so the test can't show whether the server kept the requested model or quietly ignored it. Stage 13 adds that logging.
+
+  The finding also corrects an assumption in SPEC §7's error handling. A transcription model that this session type doesn't support produces **no error at all**, so the model-rejection message can never fire for it. Stage 13 adds detection of turns that never get a transcript.
+- **Part 2, accent:** the user heard seseo ("s", not "th") on cerveza / zapato / gracias / cinco (the TESTING check that needs no fluency).
+- **Part 3, voices:** the user listened briefly to all three in a session and found none of them bothersome. The original complaint ("OpenAI voice quality is disappointing") wasn't reproduced with `gpt-realtime-2.1`.
+
+**Found along the way (scheduled, not fixed here):**
+- **Toasts have no desktop styling.** The only `.toast`/`.toast-container` rules are inside `mobile.css`'s `@media (max-width: 768px)`, so on a desktop every `H.showToast()`, error toasts included, renders as unstyled text at the bottom of the page. This was noticed when the TODO procedure told the user to watch for an error toast. Scheduled in Stage 5.
+- **A noisy warning.** "conversation.item.done had no recognizable transcript field" fires on every user turn, even with `gpt-4o-transcribe`, because `transcript: null` in `item.done` is normal; the transcript arrives in a later event. Scheduled in Stage 13.
+
+**Verified:** Live test only, run by the user with their own key (Firefox, v0.5.0, GitHub Pages). The console logs pasted from both transcription runs show the signature above. Afterwards the user cleared the override, and the placeholder showed `gpt-4o-transcribe` again. No code changed.
+
+## 2026-11-24 — Manual mic mute planned, by disabling the mic track
+**Decision:** The user's request for a manual mute button, with an assignable hotkey, is scheduled as PLAN Stage 14, near the top of the queue. The mechanism is to set the mic `MediaStreamTrack`'s `enabled` to `false` through a new `RealtimeSession.setMicMuted()`. The mute survives reconnects, and it's shared with issue #9's automatic mute during playback (live only when neither has muted it).
+
+**Rationale:** The user wants to mute pre-emptively before clearing their throat, because server VAD otherwise reads it as speech and the tutor stops to listen. Disabling the track is the standard WebRTC way to send silence: it needs no Realtime API event and no reconnect, and it leaves barge-in untouched while unmuted. Alternatives considered: raising the VAD `threshold` (affects every turn, and quiet beginners would suffer); push-to-talk (a different interaction model, and BRIEF keeps hands-free conversation as the default). A hold-to-mute hotkey variant is noted as an option, because it fits a momentary cough well.
+
+**PR #21 review (Devin):** issue #9's automatic mute must be timed from `output_audio_buffer.started`/`.stopped`, not `onAIAudioStart`/`onAIAudioEnd`, because `onAIAudioEnd` fires at `response.done`, before WebRTC playback ends. The same review changed Stage 13a's trigger to "no transcription event", not "no text", so empty transcripts from coughs or echo don't blame the model. It also added a Chrome re-run of the transcription test, with `session.updated` logged, before 13b.
+
+**Verified:** Docs only. Checked that nothing in `js/` mutes the mic today (`app.js`'s only keyboard shortcut is Escape for modals).
+
+## 2026-11-24 — Session length planned as a minute-precise number field, 1–60
+**Decision:** PLAN Stage 15 replaces the start screen's 5–30-minute slider (steps of 5) with a whole-minute number field (1–60, with −/+ buttons and optional presets), remembered in the existing but unread `config.sessionLength`. That key is therefore taken off Stage 5's removal list.
+
+**Rationale:** The user asked for minute-level precision and doubted a slider suits it. A slider with 1-minute steps across 1–60 is hard to set exactly, especially on a phone; a number field gives exact entry, and the −/+ buttons keep it usable by touch. The cap of 60 matches OpenAI's documented maximum Realtime session length (recorded 2026-07-22), to be re-checked at build time. Remembering the value fixes a quiet annoyance: today every reload resets it to 15.
+
+**Verified:** Docs only. Read `index.html` (`#session-length`: `min="5" max="30" step="5"`), `app.js` (reads the slider at start; never saves it) and `config.js` (`sessionLength: 15`, validated 5–60, otherwise unused).
