@@ -1070,4 +1070,4 @@ Full suite 162/162. Coverage is unchanged (CSS isn't counted). Browser check in 
 - the quiet and unrecognized-shape warning cases;
 - both `session.updated` log forms.
 
-Full suite 171/171 after rebasing onto Stage 3b. Coverage minimums raised: global 37 / 82 / 47 / 37, `js/realtime/**` 96 / 88 / 87 / 96. **Live check still to do** (PLAN 13a's Chrome re-run): `gpt-transcribe` should warn after 2 turns and log what the server confirmed; the default model should not warn.
+Full suite 179/179 after rebasing onto Stage 3b and the toast styles (PR #24). Coverage minimums raised: global 37 / 82 / 47 / 37, `js/realtime/**` 96 / 88 / 87 / 96. **Live check still to do** (PLAN 13a's Chrome re-run): `gpt-transcribe` should warn after 2 turns and log what the server confirmed; the default model should not warn.
