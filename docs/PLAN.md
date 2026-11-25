@@ -27,7 +27,7 @@ Updated 2026-11-24, after the live test (DECISIONS: neither transcription replac
 5. **Stage 3c:** prompt behavior. Add a repeat/slow-down rule, and settle the persona's name and
    gender.
 6. **Stage 4:** time-to-first-audio metric.
-7. **Stage 5:** data-loss fixes and cleanup, now including desktop toast styling. This also
+7. **Stage 5:** data-loss fixes and cleanup (desktop toast styling ✅ done early, 2026-11-25). This also
    builds the `app.js` test harness, which Stage 8 needs.
 8. ⭐ **Stage 8: bring vocabulary practice back.** It's hidden, not abandoned; see below.
 9. **User-requested features:** Stage 9 (listening mode), Stage 10 (dialect selection), Stage
@@ -226,12 +226,20 @@ Split into two parts, because the dialect is decided but the voice isn't:
   `generateFollowUp()` and `getVocabularyIntegration()` (PR #18 review), along with the
   starter half of the dialect tests.
 - Fix the "Hold the microphone button" toast and escape the profile-card fields.
-- **Style toasts on desktop** (found 2026-11-24). Every `.toast`/`.toast-container` rule is
+- ✅ **Style toasts on desktop** (found 2026-11-24; done 2026-11-25, ahead of the rest of Stage 5,
+  because Stage 13a's warning is a toast). Every `.toast`/`.toast-container` rule is
   inside `mobile.css`'s `@media (max-width: 768px)`, so on a desktop toasts, error toasts
   included, render as unstyled text at the bottom of the page. Add base rules (fixed position;
   success, warning and error colors). Test first by reading the CSS text, as
   `version-label-contrast.test.js` does: rules exist outside the media query, and each status
   color meets WCAG AA contrast in both color schemes.
+- **Toasts on phones cover the header** (PR #24 review). `mobile.css` still pins the container at
+  `top: var(--spacing-sm)`, full width, so several toasts or one long error hide the nav and the
+  first form row for their 3–6 s. Move it to the bottom (`top: auto; bottom: …`) or below the
+  mobile header. Extend `toast-styles.test.js` to read `mobile.css`'s block.
+- **Header text is dark on red in dark mode** (PR #24 review). The "HablaBot" title and nav labels
+  use `var(--white)`/`var(--gray-*)`, which the dark scheme redefines as surface colors; the same
+  bug `.app-version` had. Use literal colors, and extend the contrast test to the title and nav.
 
 ## Stage 8 — Bring vocabulary practice back ⭐ ⬜ (near-to-mid term)
 

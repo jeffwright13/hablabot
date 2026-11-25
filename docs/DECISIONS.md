@@ -1009,3 +1009,23 @@ Stages 4 and 12 now time from the `output_audio_buffer` events for the same reas
 - New `default-voice.test.js`: the default is one of the Settings options, and `app.js`, `session.js` and `config.js` contain no voice-ID literal.
 
 Full suite 154/154. Coverage minimums: global statements and lines 36 → 37, `js/realtime/**` functions 84 → 85.
+
+## 2026-11-25 — Base toast styles in main.css, ahead of Stage 5
+**Decision:** `css/main.css` now has base `.toast-container`, `.toast`, `.toast.{info,success,warning,error}`, `.toast-content`, `.toast-message` and `.toast-close` rules for every screen size. `mobile.css`'s `max-width: 768px` block keeps its overrides, which stretch toasts full width.
+- The container is `position: fixed`, `top: 6rem` (below the ~89px header, so the nav buttons stay clickable), at the right, with `z-index: 10001` (above `.modal-overlay`'s 10000).
+- `pointer-events: none` on the container and `auto` on each toast, so the empty strip doesn't block clicks.
+- The colors are literal hex pairs: info `#2c3e50`/white, success `#1e7e34`/white, warning `#f1c40f`/`#212529`, error `#c0392b`/white.
+
+**Rationale:** PLAN Stage 5 found that toasts had no desktop CSS, and PR #22's review raised its priority. Stage 13a's silent-transcription warning is a toast, and on desktop it rendered as plain text after the page content, often below the fold. This was done ahead of the rest of Stage 5 so the 13a live run tests a warning the learner can actually see.
+- Literal colors rather than `var(--white)`/`var(--gray-*)`, because the dark scheme redefines those as surface colors, the version-label lesson.
+- Rejected: `top: var(--spacing-md)`. Tried first, it covered the header's Settings button in the browser check.
+- Rejected: bottom placement. It's away from where the learner looks for errors.
+
+**Verified:** new `tests/toast-styles.test.js` reads the CSS as text. Its 8 tests failed first because the rules didn't exist:
+- fixed container above modals;
+- pointer events;
+- a width cap;
+- for each type, literal colors with WCAG AA contrast. Measured: info 10.98, success 5.14, warning 9.29, error 5.44.
+- the close button inherits the text color.
+
+Full suite 162/162. Coverage is unchanged (CSS isn't counted). Browser check in Chrome on localhost, dark scheme, 2043px wide: all four types rendered fixed below the header at top right, with readable colors and the header nav uncovered. The light scheme wasn't viewed, but the colors are literals, so it matches. The mobile layout was not changed (`mobile.css` still puts the container at `top: var(--spacing-sm)`, over the header, as before).
