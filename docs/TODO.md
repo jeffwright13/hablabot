@@ -51,7 +51,8 @@ rest are still open.
 
 - **#9: Mute the mic during AI playback** (a workaround for echo when not using a headset).
   Becomes important if an external TTS is adopted, because its audio may not be covered by
-  WebRTC echo cancellation. Shares the mute mechanism with PLAN Stage 14 (manual mute).
+  WebRTC echo cancellation. Shares the mute mechanism with PLAN Stage 14 (manual mute). If built: an opt-in Settings toggle,
+  default off (user, 2026-11-24).
 - **#10: Configurable mother tongue and persona guidance** for beginners who mix English and
   Spanish.
 - **#11: Try a TURN server** to fix the Firefox-specific WebRTC disconnects.

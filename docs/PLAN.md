@@ -408,7 +408,10 @@ talking. Muting during your own turn sends silence, which ends that turn as a no
 - Live check (TESTING): clear your throat while muted, and the tutor keeps talking.
 
 **Related:** issue #9 (automatic mute during AI playback, as an echo workaround) uses the same
-mechanism; do it here or straight after.
+mechanism; do it here or straight after. **If built, it must be a Settings toggle, default
+off** (user, 2026-11-24: "it might be lame"). It disables barge-in while the tutor talks, so
+it's an escape hatch for setups without a headset, not a default. Issue #9 already proposes
+exactly this, with the caveat shown next to the toggle.
 
 ## Stage 15 — Session length to the minute ⬜ (user request, 2026-11-24)
 
