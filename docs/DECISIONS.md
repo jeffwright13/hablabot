@@ -950,3 +950,27 @@ For performance feedback: reply speed can be measured from per-turn timestamps (
 BRIEF's "voice is required" constraint now notes typed input as an alternative, not a replacement.
 
 **Verified:** Docs only. No feature code changed.
+
+## 2026-11-24 — Live test: neither transcription replacement works; Mexican accent confirmed; all three voices acceptable
+**Decision:**
+- **Transcription:** keep `DEFAULT_MODELS.transcription = 'gpt-4o-transcribe'` for now. Neither documented replacement works as a drop-in, so replacing it is now a redesign, PLAN **Stage 13**, which must land before the 2027-02-26 shutdown (the tripwire fires on 2027-01-27). No `RETIRED_MODELS` entry is added for transcription.
+- **Accent:** Stage 3a's Mexican Spanish pin is confirmed by ear.
+- **Voice:** `alloy`, `marin` and `cedar` are all acceptable to the user. This answers the postponed "what sounds wrong with the current voice?" question: nothing, in this test. Stage 3b's default-voice change is now a small preference call, not a quality fix. Stages 6–7 (external TTS) lose their main motivation and drop to the end of the queue.
+
+**Rationale:** This was the user's 15-minute live test, run on v0.5.0 (the GitHub Pages build) in **Firefox** with `gpt-realtime-2.1`.
+- **Part 1, transcription**, for `gpt-live-transcribe` and then `gpt-transcribe`, each entered in Settings → Advanced. Both failed **silently**, with the same signature:
+  - the session connected and `session.update` was accepted (`session.updated` arrived; no `error` event);
+  - audio worked both ways, and the tutor understood and answered, because the realtime model hears the audio directly;
+  - every user turn's `conversation.item.done` had `content: [{ type: 'input_audio', transcript: null }]`, and no `conversation.item.input_audio_transcription.completed` or `.failed` event ever arrived. So the learner's turns never appeared in the history.
+
+  This matches the model pages read during Stage 2: `gpt-transcribe` is documented for Realtime only over WebSocket with manual commits, and `gpt-live-transcribe` only in transcription-only sessions. The `language`/`languages` caveat in TODO turned out not to matter: there was no field error to read. **Caveat:** the app doesn't log the `session.updated` payload, so the test can't show whether the server kept the requested model or quietly ignored it. Stage 13 adds that logging.
+
+  The finding also corrects an assumption in SPEC §7's error handling. A transcription model that this session type doesn't support produces **no error at all**, so the model-rejection message can never fire for it. Stage 13 adds detection of turns that never get a transcript.
+- **Part 2, accent:** the user heard seseo ("s", not "th") on cerveza / zapato / gracias / cinco (the TESTING check that needs no fluency).
+- **Part 3, voices:** the user listened briefly to all three in a session and found none of them bothersome. The original complaint ("OpenAI voice quality is disappointing") wasn't reproduced with `gpt-realtime-2.1`.
+
+**Found along the way (scheduled, not fixed here):**
+- **Toasts have no desktop styling.** The only `.toast`/`.toast-container` rules are inside `mobile.css`'s `@media (max-width: 768px)`, so on a desktop every `H.showToast()`, error toasts included, renders as unstyled text at the bottom of the page. This was noticed when the TODO procedure told the user to watch for an error toast. Scheduled in Stage 5.
+- **A noisy warning.** "conversation.item.done had no recognizable transcript field" fires on every user turn, even with `gpt-4o-transcribe`, because `transcript: null` in `item.done` is normal; the transcript arrives in a later event. Scheduled in Stage 13.
+
+**Verified:** Live test only, run by the user with their own key (Firefox, v0.5.0, GitHub Pages). The console logs pasted from both transcription runs show the signature above. Afterwards the user cleared the override, and the placeholder showed `gpt-4o-transcribe` again. No code changed.

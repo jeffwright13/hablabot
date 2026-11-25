@@ -11,21 +11,23 @@ its code. Mark stages done here as they merge, and move the reasoning into `DECI
 
 ## Up next (in order)
 
-Updated 2026-11-24, after v0.4.0.
+Updated 2026-11-24, after the live test (DECISIONS: neither transcription replacement works).
 
-1. **Needs the user at a microphone:** the transcription live test (`TODO.md`, deadline
-   2027-02-26) and the Stage 3b voice comparison. Both can be done in one sitting.
-2. **Stage 3c:** prompt behavior. Add a repeat/slow-down rule, and settle the persona's name and
+1. **Stage 13: transcription after `gpt-4o-transcribe`.** Deadline-driven: the model shuts down
+   2027-02-26 and the tripwire fires 2027-01-27. First the silent-failure detection (13a), then
+   the replacement design (13b).
+2. **Stage 3b:** pick the default voice. A preference call; all three voices passed.
+3. **Stage 3c:** prompt behavior. Add a repeat/slow-down rule, and settle the persona's name and
    gender.
-3. **Stage 4:** time-to-first-audio metric.
-4. **Stage 5:** data-loss fixes and cleanup. This also builds the `app.js` test harness, which
-   Stage 8 needs.
-5. ⭐ **Stage 8: bring vocabulary practice back.** It's hidden, not abandoned; see below.
-6. **User-requested features:** Stage 9 (listening mode), Stage 10 (dialect selection), Stage
+4. **Stage 4:** time-to-first-audio metric.
+5. **Stage 5:** data-loss fixes and cleanup, now including desktop toast styling. This also
+   builds the `app.js` test harness, which Stage 8 needs.
+6. ⭐ **Stage 8: bring vocabulary practice back.** It's hidden, not abandoned; see below.
+7. **User-requested features:** Stage 9 (listening mode), Stage 10 (dialect selection), Stage
    11 (text input alongside voice), Stage 12 (performance feedback, opt-in). They're listed in
    the order requested; the user sets the order.
-7. **Stages 6–7:** external TTS spike and evaluation, if the voice comparison and `gpt-live-1.1`
-   don't settle voice quality.
+8. **Stages 6–7:** external TTS spike and evaluation. Deprioritized: the live test found the
+   native voices acceptable. Revisit if voice quality becomes a complaint again.
 
 ---
 
@@ -140,7 +142,7 @@ DECISIONS entry; SPEC §5 and §7; CLAUDE.md model rule.
   `Config` defaults (`freshDefaults()`).
 - Coverage minimums raised: global 36/80/43/36, `js/realtime/` 95/88/84/95.
 
-## Stage 3 — Voice A/B and prompt 🔨 (3a ✅ in v0.4.0; 3b waits on the user; 3c not started)
+## Stage 3 — Voice A/B and prompt 🔨 (3a ✅ in v0.4.0, accent confirmed live; 3b voices compared, default not yet chosen; 3c not started)
 
 Split into two parts, because the dialect is decided but the voice isn't:
 
@@ -169,11 +171,13 @@ Split into two parts, because the dialect is decided but the voice isn't:
   vecindario). These now use mesero/a, estadía, departamento, renta, depósito, recámara and
   colonia. The new test caught one more `fianza`, in an advanced starter.
 
-**3b. Choose the voice (waits for the listening comparison).**
-0. With no code change, and after 3a lands, listen to `alloy`, `marin` and `cedar` at speeds 0.9
-   and 1.0 in Chrome, on the same scenario. Then answer the postponed "what sounds wrong"
-   question in `TODO.md`.
-1. `config.js`: change the default voice to whichever wins (test in `config.test.js`).
+**3b. Choose the voice 🔨 (comparison done 2026-11-24; default not yet chosen).**
+0. ✅ Listening comparison. The user heard `alloy`, `marin` and `cedar` in live sessions (Firefox,
+   v0.5.0) and found none of them bothersome (DECISIONS 2026-11-24). Not done: the separate 0.9
+   vs 1.0 speed comparison. It didn't seem needed.
+1. `config.js`: change the default voice from `alloy`, test first in `config.test.js`. The UI
+   already labels `marin` and `cedar` "recommended", so one of them is the natural choice. It's
+   the user's pick. Bear in mind 3c: the voice sets the persona's apparent gender.
 
 **3c. Prompt behavior ⬜ (from the user's 2026-11-24 live session).**
 - **Repeat/slow-down rule.** When the learner says "otra vez", "más despacio", "¿cómo?", "no
@@ -213,6 +217,12 @@ Split into two parts, because the dialect is decided but the voice isn't:
   `generateFollowUp()` and `getVocabularyIntegration()` (PR #18 review), along with the
   starter half of the dialect tests.
 - Fix the "Hold the microphone button" toast and escape the profile-card fields.
+- **Style toasts on desktop** (found 2026-11-24). Every `.toast`/`.toast-container` rule is
+  inside `mobile.css`'s `@media (max-width: 768px)`, so on a desktop toasts, error toasts
+  included, render as unstyled text at the bottom of the page. Add base rules (fixed position;
+  success, warning and error colors). Test first by reading the CSS text, as
+  `version-label-contrast.test.js` does: rules exist outside the media query, and each status
+  color meets WCAG AA contrast in both color schemes.
 
 ## Stage 8 — Bring vocabulary practice back ⭐ ⬜ (near-to-mid term)
 
@@ -331,7 +341,41 @@ text input.
   HablaBot is for (BRIEF). So: **off by default, private, and shown as trends over sessions,
   not grades.**
 
-## Stage 6 — External TTS spike ⏸ (`experiment/external-tts`; key-handling answer needed)
+## Stage 13 — Transcription after `gpt-4o-transcribe` ⬜ (deadline 2027-02-26; tripwire 2027-01-27)
+
+The live test (DECISIONS 2026-11-24) showed that neither documented replacement works in this
+app's WebRTC + server-VAD session, and that the failure is **silent**: no error, just
+`transcript: null` on every user turn.
+
+**13a. Make a silent transcription failure visible (first; small).** Tests first in
+`realtime-session.test.js`, with simulated event sequences:
+- After 2 consecutive user turns (VAD `speech_stopped` plus the user `conversation.item.done`)
+  with no transcript within a timeout (to be named; ~10 s), notify the learner **once per
+  connection**, naming the transcription model and pointing to Settings → Advanced. A
+  transcript arriving resets the count; a late transcript just inside the timeout doesn't
+  trigger it. Pass the timer in, as with `fetchFn`.
+- Remove the "conversation.item.done had no recognizable transcript field" warning when the
+  transcript is `null` (normal: it arrives later). Keep it for a genuinely unrecognized shape.
+- Log the `session.updated` event's transcription settings, so a future live test shows
+  whether the server kept the requested model.
+- SPEC §4 and §7: document the silent-failure case and its detection.
+
+**13b. Choose and build the replacement.** Re-read OpenAI's models, deprecations and Realtime
+pages first (they change), then compare:
+1. **A second, transcription-only Realtime session** fed the same mic track, using
+   `gpt-live-transcribe` or `gpt-realtime-whisper` (the documented home for both). Costs a
+   second connection and token per session; turns must be matched to the conversation's.
+2. **A WebSocket `gpt-transcribe` session** with manual commits driven by the conversation's
+   VAD events. Needs the app to stream audio over a WebSocket itself.
+3. **Move the conversation to `gpt-live-1.1`** (`/v1/live/sessions`), which claims better
+   transcription and a more consistent accent. Biggest change; evaluate with Stage 7.
+4. **Wait for OpenAI** to support a replacement in WebRTC sessions. Only viable if it happens
+   well before 2027-01-27; not a plan by itself.
+Each candidate is live-tested in a spike branch before it's chosen. Record the choice in
+DECISIONS, change `DEFAULT_MODELS.transcription` or the session design (with tests), and remove
+the `KNOWN_SHUTDOWNS` entry only once the old model is no longer used.
+
+## Stage 6 — External TTS spike ⏸ (`experiment/external-tts`; deprioritized 2026-11-24: native voices passed the live test)
 
 - New `js/tts/<provider>.js`: streams text in and audio out, can be stopped, and reports
   time-to-first-byte.

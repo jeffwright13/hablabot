@@ -19,15 +19,13 @@ console and reload.
 - **Performance feedback:** PLAN Stage 12. Opt-in reply speed and accuracy, for voice and text.
 - Also: listening mode (Stage 9) and dialect selection (Stage 10).
 
-## Product questions (they block PLAN Stages 3 and 6)
+## Product questions (they block PLAN Stage 6)
 
 Asked during the 2026-11-24 architecture/TTS review. The dialect question was answered on
-2026-11-24 (Mexican Spanish; see DECISIONS); the rest are still open.
+2026-11-24 (Mexican Spanish; see DECISIONS). The "what sounds wrong with the voice?" question
+was answered by the live test the same day: nothing, with alloy, marin or cedar (DECISIONS). The
+rest are still open.
 
-- **What exactly sounds wrong with the current voice?** *Postponed by the user (2026-11-24)
-  until after the Stage 3 listening comparison;* they haven't compared voices yet. Ask again
-  after that: robotic, wrong accent, English-accented Spanish, mispronunciations, or pacing?
-  Which voice and browser?
 - **Is "client-only, bring your own key" a hard constraint** once a second provider key exists?
   If not, a small token-minting proxy becomes an option for the ElevenLabs key.
 - **How much does barge-in matter compared with voice quality?** An external TTS provider makes
@@ -38,48 +36,12 @@ Asked during the 2026-11-24 architecture/TTS review. The dialect question was an
 
 ## Model decisions (deadline-driven)
 
-- **Pick a replacement for `gpt-4o-transcribe` before 2027-02-26.** OpenAI's deprecations page
-  (notice 2026-08-26) names `gpt-live-transcribe` or `gpt-transcribe`, but per their model pages
-  (read 2026-11-24) neither works as a drop-in for HablaBot's WebRTC speech-to-speech session
-  with server VAD. `gpt-transcribe` works in a Realtime session only over WebSocket, with
-  manual turn commits. `gpt-live-transcribe` and `gpt-realtime-whisper` work only in
-  transcription-only sessions, and `gpt-live-transcribe` doesn't support server VAD and uses
-  `languages: [...]`, not `language`.
-
-  **Chosen first step (user, 2026-11-24): option 1, a live test in Settings.** Options 2 and 3
-  are fallbacks if it fails. Procedure, for the user to run with a real key (Chrome):
-  1. Settings → Advanced → Transcription model: enter `gpt-transcribe`. Start a beginner
-     session and speak 3–4 turns.
-  2. Pass means each of your turns appears in the history as accurate Spanish text, with no
-     error toast. Fail means a "Transcription model … was rejected" toast, turns missing from
-     the history, or `input audio transcription failed` in the console. Copy any error text
-     verbatim: it's also the first real model-rejection response, which SPEC §7 needs.
-  3. Repeat with `gpt-live-transcribe`. **Caveat:** the app sends `language: 'es'`, but per the
-     docs this model takes `languages: ["es"]`. A failure that mentions `language` is about the
-     field, not necessarily the model, and needs a small code change to retest.
-  **Reading a failure:** judge by OpenAI's own text (quoted inside the toast) and by the `param`
-  in the console's `RealtimeSession: API error` log line, not only by the toast's first sentence.
-  Since PR #17, a "model … was rejected" toast appears only when `param` is the model field
-  itself (or, with no `param`, when the message quotes the model ID). A rejected `language`
-  field shows OpenAI's text as-is.
-  4. Clear the field afterwards (blank means the default).
-
-  Record the result in DECISIONS. If one passes, change `DEFAULT_MODELS.transcription` (with
-  tests) and remove its `KNOWN_SHUTDOWNS` entry.
-
-  Options:
-  1. Live-test whether `gpt-transcribe` or `gpt-live-transcribe` actually works in the current
-     session despite the docs. Settings → Advanced makes this a no-code test. Note that
-     `gpt-realtime-whisper` "never produced a transcript" in July 2026 testing, but that was
-     during the stale-service-worker period (DECISIONS, Issue #8), so the result may be invalid.
-  2. Run transcription as a separate transcription session alongside the conversation session.
-  3. Move the conversation to `gpt-live-1.1` (`/v1/live/sessions`, a different API), which per
-     its page "transcribes speech more accurately and maintains a more consistent accent and
-     voice across languages". That bears directly on the voice-quality complaint, so evaluate it
-     together with PLAN Stage 7. Not read yet: the Live API guide
-     (`developers.openai.com/api/docs/guides/live`), its voices, and whether it supports speed.
-
-  The tripwire in `tests/models.test.js` fails from 2027-01-27 if this is still open.
+- **Replace `gpt-4o-transcribe` before 2027-02-26 → now PLAN Stage 13.** The no-code live test
+  (2026-11-24, DECISIONS) failed for both documented replacements: `gpt-transcribe` and
+  `gpt-live-transcribe` were accepted by `session.update` but never produced a transcript, and
+  gave no error. So this is a redesign, not a model swap. The options and the silent-failure
+  detection that comes first are in PLAN Stage 13. The tripwire in `tests/models.test.js` fails
+  from 2027-01-27 if this is still open.
 
 ## Open issues (GitHub)
 
@@ -110,7 +72,8 @@ Asked during the 2026-11-24 architecture/TTS review. The dialect question was an
   been confirmed on every platform.
 - **There are no request timeouts** in `RealtimeSession.connect()`. A hung `client_secrets` or SDP
   request would leave the status at "connecting" with no way out except reloading.
-- **Failed transcriptions are invisible to the learner** (console only).
+- **Failed transcriptions are invisible to the learner** (console only), and a transcription
+  model the session doesn't support fails with no event at all. Detection is PLAN Stage 13a.
 - **Reconnects lose the model's memory of the conversation.** Replaying `conversationHistory`
   into the new session is possible now that user transcripts work, but hasn't been designed.
 - **Profile cards insert `user.avatar` and `user.id` into `innerHTML`/`onclick` without escaping**

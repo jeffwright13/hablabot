@@ -118,7 +118,8 @@ session.
   `<audio>` element. The on-screen AI text is a transcript *of* that audio.
 - Controls:
   - `audio.output.voice` comes from Settings → AI Voice. There are 10 static OpenAI voices, the
-    default is `alloy`, and the UI labels `marin` and `cedar` "recommended".
+    default is `alloy`, and the UI labels `marin` and `cedar` "recommended". In the 2026-11-24
+    live test the user found all three acceptable; the default may change (PLAN Stage 3b).
   - `audio.output.speed` is Settings → Speech Rate. The slider runs 0.5–1.5, and `session.js`
     clamps the value to the API's 0.25–1.5.
   - Volume is applied on the client as `audioEl.volume`, clamped to 0–1.
@@ -136,6 +137,11 @@ session.
 - A failed transcription (`conversation.item.input_audio_transcription.failed`) is logged to the
   console only. The exception is a failure that names the transcription model, which means every
   turn will fail: that one is shown to the learner once per connection (§7, Error handling).
+- **A transcription model this session type doesn't support fails silently** (live test,
+  2026-11-24, `gpt-transcribe` and `gpt-live-transcribe`). `session.update` is accepted, the
+  tutor still hears and answers, but every user item has `transcript: null` and no `completed`,
+  `failed` or `error` event arrives, so the learner's turns never reach the history. Nothing
+  detects this yet (PLAN Stage 13a).
 
 ## 5. Settings
 
@@ -218,14 +224,18 @@ connection. Other errors are unchanged. **Not yet confirmed against a real rejec
 the real shape in DECISIONS when one is seen.
 
 ### The transcription replacement is an open decision
-OpenAI names `gpt-live-transcribe` or `gpt-transcribe` as replacements, but per their model pages
-neither works as a drop-in for this app's session:
+OpenAI names `gpt-live-transcribe` or `gpt-transcribe` as replacements, but neither works as a
+drop-in for this app's session. That's per their model pages, and **confirmed by a live test on
+2026-11-24** (both fail silently, see §4):
 - `gpt-transcribe` works in a Realtime session only over WebSocket, with manual turn commits.
 - `gpt-live-transcribe` and `gpt-realtime-whisper` work only in transcription-only sessions, and
   `gpt-live-transcribe` doesn't support server VAD.
 
 `gpt-live-1.1` (a "full-duplex voice model for multilingual conversations") uses a different API,
-`/v1/live/sessions`. See `TODO.md`.
+`/v1/live/sessions`. The redesign options are in `PLAN.md` Stage 13.
+
+The model-rejection message above covers only models the API *rejects*. One it accepts but
+doesn't use for this session type gives no error (§4).
 
 ## 8. Offline / PWA
 
