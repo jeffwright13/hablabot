@@ -1057,7 +1057,8 @@ Full suite 162/162. Coverage is unchanged (CSS isn't counted). Browser check in 
 **Rationale:** The 2026-11-24 live test showed an accepted-but-unused transcription model produces no event at all, so nothing told the learner why their turns weren't appearing. Counting events rather than non-empty text follows the PR #21 review: coughs, VAD false starts and issue #9's echo loop give real turns an empty transcript, and that isn't a model failure. Two turns, not one, because a single dropped transcription event is plausible on a bad network and shouldn't blame the model. 10 s is generous for a transcript that normally lands within a second or two; at worst the warning comes about 20 s into a session. Alternatives rejected:
 - warning on the first miss (too jumpy);
 - keying off `input_audio_buffer.speech_stopped` (a VAD stop with no committed item would count as a turn);
-- a separate module (it would need its own script tag, precache entry and cache bump, for about 60 lines that only `session.js` uses).
+- a separate module (it would need its own script tag, precache entry and cache bump, for about 60 lines that only `session.js` uses);
+- an injected timer (`setTimeoutFn`, as the plan first said). `session.js` already calls the global `fetch`, `RTCPeerConnection` and `setTimeout` (three other timers) and its tests stub them, with `vi.useFakeTimers()` for time. Injecting just this one would make it the only exception in the file. Moving the whole file to injected side effects is a separate refactor, if ever.
 
 **Verified:** 17 new or rewritten tests in `tests/realtime-session.test.js`, using fake timers. They failed first: 9 because the constants, the warning and the logging didn't exist, and the bounded-memory test before the cap was added. The rest passed from the start, because they check that nothing fires. They cover:
 - the warning after 2 misses, once only, and never after 1;

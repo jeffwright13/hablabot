@@ -387,8 +387,8 @@ app's WebRTC + server-VAD session, and that the failure is **silent**: no error,
 **13a. Make a silent transcription failure visible 🔨 (built 2026-11-25; the Chrome re-run below is
 still to do).** Tests first in
 `realtime-session.test.js`, with simulated event sequences:
-- After 2 consecutive user turns (VAD `speech_stopped` plus the user `conversation.item.done`)
-  for which **no transcription event arrives** (neither
+- After 2 consecutive user turns (a user `conversation.item.done` with `input_audio` content; a
+  VAD `speech_stopped` alone doesn't count, see DECISIONS) for which **no transcription event arrives** (neither
   `conversation.item.input_audio_transcription.completed` nor `.failed`) within a timeout (to
   be named; ~10 s), notify the learner **once per connection**, naming the transcription model
   and pointing to Settings → Advanced. That's exactly the live test's signature. Judge by the
@@ -397,7 +397,8 @@ still to do).** Tests first in
   - a `completed` event resets the count, **even with `""`** (its own test case);
   - `.failed` is already reported separately, so it resets the count too;
   - a late event just inside the timeout doesn't trigger the warning.
-  Pass the timer in, as with `fetchFn`.
+  Uses the global `setTimeout`, like the rest of `session.js`; tests use fake timers (see
+  DECISIONS for why it isn't injected).
 - Remove the "conversation.item.done had no recognizable transcript field" warning when the
   transcript is `null` (normal: it arrives later). Keep it for a genuinely unrecognized shape.
 - Log the `session.updated` event's transcription settings, so a future live test shows
