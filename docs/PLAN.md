@@ -233,6 +233,13 @@ Split into two parts, because the dialect is decided but the voice isn't:
   success, warning and error colors). Test first by reading the CSS text, as
   `version-label-contrast.test.js` does: rules exist outside the media query, and each status
   color meets WCAG AA contrast in both color schemes.
+- **Toasts on phones cover the header** (PR #24 review). `mobile.css` still pins the container at
+  `top: var(--spacing-sm)`, full width, so several toasts or one long error hide the nav and the
+  first form row for their 3–6 s. Move it to the bottom (`top: auto; bottom: …`) or below the
+  mobile header. Extend `toast-styles.test.js` to read `mobile.css`'s block.
+- **Header text is dark on red in dark mode** (PR #24 review). The "HablaBot" title and nav labels
+  use `var(--white)`/`var(--gray-*)`, which the dark scheme redefines as surface colors; the same
+  bug `.app-version` had. Use literal colors, and extend the contrast test to the title and nav.
 
 ## Stage 8 — Bring vocabulary practice back ⭐ ⬜ (near-to-mid term)
 
