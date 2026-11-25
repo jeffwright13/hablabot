@@ -935,3 +935,24 @@ Fixing all that is a stage of its own in a different direction from the voice wo
 2. After "otra vez" the tutor seemed to slow down and simplify on its own; no prompt rule asks for that yet.
 
 **Verified:** `tests/features.test.js` (8 tests, plus 5 after review) failed first, then passed: first because the module didn't exist, then on the missing counter and first-time logic. They cover: default off; on only for exactly `true`; the flag persisting through Config; no target words, and no call to the manager, while off; delegation while on; the tab and view hidden while off and the tab shown while on; tolerance of missing elements. `sw-precache.test.js` confirmed the new script is precached (`CACHE_NAME` is now `hablabot-v6`). The `app.js` wiring is three one-line call sites into the tested helpers; `app.js` itself still has no harness (Stage 5). Full suite: 147/147. Coverage minimums raised to global 36 / 81 / 45 / 36 (measured 36.87 / 81.59 / 45.33 / 36.87). **Browser check** (Chrome, local server): the app initialized with no console errors. The Vocabulary tab was hidden, `switchView('vocabulary')` stayed on Conversation, and `selectTargetWords` returned `[]`. With the flag set to `true` the tab reappeared and the view opened. The header showed v0.4.0.
+
+## 2026-11-24 — Text input planned as hybrid-first; performance feedback planned as opt-in
+**Decision:** Two user feature requests are recorded and scheduled.
+- **Text input alongside voice (PLAN Stage 11):**
+  - **11a (first):** a text box that's always available in the live voice session, with the mic still on, so there's no mode switch. Which input was used is known from which one arrived.
+  - **11b (later):** a per-session typed-only mode with no microphone (typed in, spoken out).
+- **Performance feedback (PLAN Stage 12):** opt-in, private, shown as trends over sessions.
+
+**Rationale:** The user asked for text input either selectable per session or "dynamically deduced" from what the learner uses. OpenAI's Realtime conversations guide and client-events reference (read 2026-11-24) confirm that a typed user message can be added to a live session (`conversation.item.create` with `input_text`, then `response.create`), and that a reply in progress can be interrupted over WebRTC (`response.cancel`, `output_audio_buffer.clear`). Keeping both inputs live makes the deduced version almost free, which is why it goes first. A session with no microphone isn't shown anywhere in the docs (every WebRTC example adds a mic track), so it needs a live test and goes second.
+
+For performance feedback: reply speed can be measured from per-turn timestamps (shared with Stage 4). Accuracy has no definition yet; candidates are a post-session text-model review (cost, and a second privacy exposure of the transcript) or counting the tutor's recasts. Visible scores could raise anxiety, against BRIEF's low-pressure practice, hence off by default and trends rather than grades.
+
+BRIEF's "voice is required" constraint now notes typed input as an alternative, not a replacement.
+
+**PR #20 review (Devin), checked against `session.js`:**
+- Interrupting the tutor needs two states, not `isSpeaking`: a response is active from `response.created` to `response.done`, and audio is playing from `output_audio_buffer.started` to `.stopped`. `isSpeaking` runs from the first transcript delta to `response.done`, and over WebRTC `response.done` usually arrives before playback ends.
+- The echoed typed item would `console.warn` the learner's text on every turn, and must be skipped quietly.
+
+Stages 4 and 12 now time from the `output_audio_buffer` events for the same reason. 11b is renamed "typed-only", since its output is still speech.
+
+**Verified:** Docs only. No feature code changed. The review's claims were checked by reading `session.js`: `isSpeaking` is set at the first delta and cleared at `response.done`, nothing handles `response.created` or `output_audio_buffer.*`, and an item with no `transcript` reaches the `console.warn` in the `conversation.item.done` handler.

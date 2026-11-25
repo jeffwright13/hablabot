@@ -51,7 +51,9 @@ is built for one yet: there are no accounts and no server.
 - **All learner data stays local.** Vocabulary, sessions and transcripts live in per-profile
   IndexedDB databases. Profiles are local configurations, not authenticated identities.
 - **Voice is required.** Text-to-speech output and speech recognition are core, not optional.
-  A text-only fallback may exist for failures, but it is not the product.
+  Typed input is planned as an always-available *alternative* for learners who are more
+  comfortable typing at times (PLAN Stage 11). The tutor still answers aloud, and the product
+  stays speaking-first.
 - **Spanish is the only target language** for now.
 - **Provider churn is expected.** AI model IDs and API shapes change often. Model IDs must be
   replaceable without code edits scattered across files (see `SPEC.md`, AI Models).
