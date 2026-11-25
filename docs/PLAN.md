@@ -11,6 +11,9 @@ its code. Mark stages done here as they merge, and move the reasoning into `DECI
 
 ## Up next (in order)
 
+Feature requests not yet in this queue are listed in `TODO.md` → Feature requests, each with
+its stage.
+
 Updated 2026-11-24, after the live test (DECISIONS: neither transcription replacement works).
 
 1. **Stage 13: transcription after `gpt-4o-transcribe`.** Deadline-driven: the model shuts down
@@ -198,8 +201,9 @@ Split into two parts, because the dialect is decided but the voice isn't:
 
 ## Stage 4 — Time-to-first-audio metric ⬜
 
-- `session.js`: timestamp `input_audio_buffer.speech_stopped` and the first output signal (first
-  transcript delta as a proxy; use a real "output audio started" event if the docs confirm one).
+- `session.js`: timestamp `input_audio_buffer.speech_stopped` and the first output audio,
+  `output_audio_buffer.started` (WebRTC). It's closer to what the learner hears than the first
+  transcript delta (PR #20 review); confirm it in the docs, and fall back to the delta if not.
   Keep per-turn latency in the session record, and log p50 and p95 at the end of the session.
 - Tests: simulated event sequences give the expected latencies; a turn with no reply produces no
   measurement; a barge-in doesn't corrupt the next turn's measurement.
@@ -307,21 +311,36 @@ speaking-first (BRIEF); typing is an always-available alternative, not a replace
 **11a. Hybrid: type or speak at any time (do first).** A text box under the conversation, with
 the mic still live. There's no mode switch: the app knows which input was used from which one
 arrived. This is the "dynamically deduced" option, and the docs make it nearly free.
-- `session.js`: a new `sendText(text)` sends the two events above. If the tutor is speaking, it
-  sends `response.cancel` and `output_audio_buffer.clear` first.
+- `session.js`: a new `sendText(text)` sends the two events above. Before that it interrupts the
+  tutor, using **two separate states** (PR #20 review). The existing `isSpeaking` can't be used:
+  it runs from the first transcript delta to `response.done`, which over WebRTC usually arrives
+  while the learner is still hearing the audio, and it misses the gap between `response.created`
+  and the first delta.
+  - **response active** (`response.created` → `response.done`) gates `response.cancel`, so the
+    following `response.create` isn't refused because a response is still active;
+  - **audio playing** (the WebRTC-only `output_audio_buffer.started` → `.stopped` events) gates
+    `output_audio_buffer.clear`.
+  Confirm both event pairs in the current docs before building; if they differ, the tests change
+  first.
 - `app.js`: show the typed message in the history right away, and save it in
   `conversationHistory` with `input: 'typed'` (spoken turns get `input: 'spoken'`).
 - **Watch for:** the server echoes the typed item back (`conversation.item.added` / `.done`).
-  The current user-transcript handler only reads `transcript` fields, so it shouldn't duplicate
-  the message, but a test must prove it. If a later change makes it read `text`, deduplicate by
-  item ID.
-- Tests first: `sendText()` event shapes; cancel and clear only while the tutor is speaking;
-  blank input ignored; no duplicate history entry from the echoed item; the wiring is a
+  The current user-transcript handler only reads `transcript` fields, so it won't duplicate the
+  message. But the item has no `transcript`, so today it falls into the `console.warn` branch,
+  which logs the whole item, **including the learner's typed text**, on every typed turn. A
+  user item whose content is only `input_text` must be skipped quietly. (Stage 13a removes the
+  same warning for `transcript: null`.) If a later change makes the handler read `text`,
+  deduplicate by item ID.
+- Tests first: `sendText()` event shapes; cancel only while a response is active and clear only
+  while audio is playing (including a response that's active but hasn't sent a delta yet, and
+  audio still playing after `response.done`); blank input ignored; the echoed item gives no
+  duplicate history entry and no warning; the wiring is a
   testable helper like `model-settings.js`.
 - Live check: typed and spoken turns mixed in one session; typing while the tutor talks cuts
   her off cleanly.
 
-**11b. Text-only session, no microphone (later, needs a live test).** For learners who'd rather
+**11b. Typed-only session, no microphone (later, needs a live test).** Typed text in, spoken
+audio out (not `output_modalities: ['text']`). For learners who'd rather
 not grant mic permission, or who are somewhere they can't speak.
 - **Not documented:** every WebRTC example adds a mic track. The likely approach is a
   receive-only audio transceiver (`pc.addTransceiver('audio', { direction: 'recvonly' })`) and
@@ -332,7 +351,8 @@ not grant mic permission, or who are somewhere they can't speak.
 
 **Idea:** how quickly, and how accurately, the learner turns around replies, for both voice and
 text input.
-- **Speed (measurable):** response latency per turn, i.e. from the end of the tutor's speech to
+- **Speed (measurable):** response latency per turn, i.e. from the end of the tutor's speech
+  (`output_audio_buffer.stopped`, not `response.done`, which arrives before playback ends) to
   the learner starting to speak, or to the first keystroke and submit; typing speed. This
   reuses Stage 4's per-turn timestamps.
 - **Accuracy (needs a definition first):** something has to judge the learner's Spanish.
