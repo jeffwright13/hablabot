@@ -18,17 +18,19 @@ Updated 2026-11-24, after the live test (DECISIONS: neither transcription replac
    the replacement design (13b).
 2. **Stage 14: manual mic mute, with a hotkey.** Small, and it fixes a real annoyance from live
    use. It builds the mute mechanism that issue #9 needs too.
-3. **Stage 3b:** pick the default voice. A preference call; all three voices passed.
-4. **Stage 3c:** prompt behavior. Add a repeat/slow-down rule, and settle the persona's name and
+3. **Stage 15: session length to the minute.** Small; it can share a branch with Stage 14 or
+   go straight after it.
+4. **Stage 3b:** pick the default voice. A preference call; all three voices passed.
+5. **Stage 3c:** prompt behavior. Add a repeat/slow-down rule, and settle the persona's name and
    gender.
-5. **Stage 4:** time-to-first-audio metric.
-6. **Stage 5:** data-loss fixes and cleanup, now including desktop toast styling. This also
+6. **Stage 4:** time-to-first-audio metric.
+7. **Stage 5:** data-loss fixes and cleanup, now including desktop toast styling. This also
    builds the `app.js` test harness, which Stage 8 needs.
-7. ⭐ **Stage 8: bring vocabulary practice back.** It's hidden, not abandoned; see below.
-8. **User-requested features:** Stage 9 (listening mode), Stage 10 (dialect selection), Stage
+8. ⭐ **Stage 8: bring vocabulary practice back.** It's hidden, not abandoned; see below.
+9. **User-requested features:** Stage 9 (listening mode), Stage 10 (dialect selection), Stage
    11 (text input alongside voice), Stage 12 (performance feedback, opt-in). They're listed in
    the order requested; the user sets the order.
-9. **Stages 6–7:** external TTS spike and evaluation. Deprioritized: the live test found the
+10. **Stages 6–7:** external TTS spike and evaluation. Deprioritized: the live test found the
    native voices acceptable. Revisit if voice quality becomes a complaint again.
 
 ---
@@ -214,7 +216,8 @@ Split into two parts, because the dialect is decided but the voice isn't:
 - **Not in scope here:** `js/vocabulary/*`, the vocabulary UI in `components.js`, and the
   session-vocab bridge. They're hidden, not dead; Stage 8 revives them.
 - Remove the dead code and settings. The exact list will be confirmed before deleting:
-  `js/speech/*`, `js/utils/audio.js`, the unused config keys (SPEC §5), and the never-called
+  `js/speech/*`, `js/utils/audio.js`, the unused config keys (SPEC §5; **not** `sessionLength`,
+  which Stage 15 puts to use), and the never-called
   `prompts.js` helpers `getConversationStarters()`/`getAllConversationStarters()`,
   `generateFollowUp()` and `getVocabularyIntegration()` (PR #18 review), along with the
   starter half of the dialect tests.
@@ -406,6 +409,27 @@ talking. Muting during your own turn sends silence, which ends that turn as a no
 
 **Related:** issue #9 (automatic mute during AI playback, as an echo workaround) uses the same
 mechanism; do it here or straight after.
+
+## Stage 15 — Session length to the minute ⬜ (user request, 2026-11-24)
+
+**Today:** a range slider on the start screen (`index.html` `#session-length`, 5–30 in steps of
+5, default 15). The value isn't saved: `config.sessionLength` exists but nothing reads it, so
+every reload goes back to 15. The user finds 5-minute steps too coarse, and a slider a poor
+control for picking an exact number.
+
+**Proposal:** replace the slider with a **number field in whole minutes**, with − and + buttons
+for touch screens, and optionally a few one-tap presets (5 / 10 / 15 / 30).
+- Range **1–60 minutes.** 60 is OpenAI's documented maximum Realtime session length (DECISIONS
+  2026-07-22). Re-check that limit when building this; if it has changed, the cap changes with it.
+- **Remember the last value** in `config.sessionLength` (wiring up the leftover key rather than
+  deleting it). Change `validateSettings()` from 5–60 to 1–60, and remove the per-profile
+  `sessionLength: 15` in `user-manager.js` unless per-profile lengths are wanted.
+- Typed values are clamped and rounded on change (blank or invalid → the saved value), so the
+  timer never gets `NaN`. Note: `parseInt` of an empty field is `NaN` in JS, not an error.
+- Tests first: a small pure `parseSessionLength(input, fallback)` (bounds, decimals, blanks,
+  non-numbers) and the config validation and persistence (`config.test.js`). The `app.js`
+  wiring is a few lines; the timer's minute→second conversion is unchanged.
+- SPEC §2.1 and §5 updated in the same commit.
 
 ## Stage 6 — External TTS spike ⏸ (`experiment/external-tts`; deprioritized 2026-11-24: native voices passed the live test)
 

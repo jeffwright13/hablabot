@@ -981,3 +981,10 @@ BRIEF's "voice is required" constraint now notes typed input as an alternative, 
 **Rationale:** The user wants to mute pre-emptively before clearing their throat, because server VAD otherwise reads it as speech and the tutor stops to listen. Disabling the track is the standard WebRTC way to send silence: it needs no Realtime API event and no reconnect, and it leaves barge-in untouched while unmuted. Alternatives considered: raising the VAD `threshold` (affects every turn, and quiet beginners would suffer); push-to-talk (a different interaction model, and BRIEF keeps hands-free conversation as the default). A hold-to-mute hotkey variant is noted as an option, because it fits a momentary cough well.
 
 **Verified:** Docs only. Checked that nothing in `js/` mutes the mic today (`app.js`'s only keyboard shortcut is Escape for modals).
+
+## 2026-11-24 — Session length planned as a minute-precise number field, 1–60
+**Decision:** PLAN Stage 15 replaces the start screen's 5–30-minute slider (steps of 5) with a whole-minute number field (1–60, with −/+ buttons and optional presets), remembered in the existing but unread `config.sessionLength`. That key is therefore taken off Stage 5's removal list.
+
+**Rationale:** The user asked for minute-level precision and doubted a slider suits it. A slider with 1-minute steps across 1–60 is hard to set exactly, especially on a phone; a number field gives exact entry, and the −/+ buttons keep it usable by touch. The cap of 60 matches OpenAI's documented maximum Realtime session length (recorded 2026-07-22), to be re-checked at build time. Remembering the value fixes a quiet annoyance: today every reload resets it to 15.
+
+**Verified:** Docs only. Read `index.html` (`#session-length`: `min="5" max="30" step="5"`), `app.js` (reads the slider at start; never saves it) and `config.js` (`sessionLength: 15`, validated 5–60, otherwise unused).

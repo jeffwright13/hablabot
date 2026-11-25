@@ -156,7 +156,7 @@ on load.
 | `speechVolume` | Settings → Volume | Yes |
 | `vocabularyEnabled` | None (feature flag; console only) | Yes: `false` hides vocabulary practice (§6) |
 | `models` (`{ realtime, transcription }`) | Settings → Advanced: AI Models. Blank means the registry default (§7) | Yes |
-| `elevenLabsApiKey`, `enableElevenLabs`, `speechLanguage`, `speechPitch`, `voiceIndex`, `apiTimeout`, `maxRetries`, `dataRetentionDays`, `conversationLogging`, `speechConfidenceThreshold`, `sessionLength`, `difficultyLevel`, `theme`, `language`, `enableOfflineMode`, `enableAnalytics` | None | **No.** These are leftovers, and `PLAN.md` Stage 5 removes them. |
+| `elevenLabsApiKey`, `enableElevenLabs`, `speechLanguage`, `speechPitch`, `voiceIndex`, `apiTimeout`, `maxRetries`, `dataRetentionDays`, `conversationLogging`, `speechConfidenceThreshold`, `difficultyLevel`, `theme`, `language`, `enableOfflineMode`, `enableAnalytics` | None | **No.** These are leftovers, and `PLAN.md` Stage 5 removes them. (`sessionLength` is also unread today, but PLAN Stage 15 wires it up instead.) |
 
 The API key is saved only when **Test** succeeds.
 

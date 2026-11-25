@@ -20,6 +20,8 @@ console and reload.
 - Also: listening mode (Stage 9) and dialect selection (Stage 10).
 - **Manual mic mute with an assignable hotkey:** PLAN Stage 14. For coughs and throat-clearing
   that would otherwise make the tutor stop and listen.
+- **Session length settable to the minute:** PLAN Stage 15. A number field (1–60) instead of
+  the 5-minute-step slider, remembered between visits.
 
 ## Product questions (they block PLAN Stage 6)
 
