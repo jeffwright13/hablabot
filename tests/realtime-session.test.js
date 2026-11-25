@@ -271,6 +271,14 @@ describe('RealtimeSession model IDs', () => {
     expect(update.session.audio.input.transcription.model).toBe('gpt-transcribe');
   });
 
+  it('falls back to the registry voice in both the token request and session.update', async () => {
+    const pc = await connectAndOpen(session, 'sk-test', {});
+    const update = pc.dataChannel.sent.find(m => m.type === 'session.update');
+
+    expect(tokenRequestBody().session.audio.output.voice).toBe('marin');
+    expect(update.session.audio.output.voice).toBe('marin');
+  });
+
   it('falls back to the registry defaults when no models are passed', async () => {
     const pc = await connectAndOpen(session, 'sk-test', {});
     const update = pc.dataChannel.sent.find(m => m.type === 'session.update');

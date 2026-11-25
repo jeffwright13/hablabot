@@ -996,3 +996,16 @@ Stages 4 and 12 now time from the `output_audio_buffer` events for the same reas
 **Rationale:** The user asked for minute-level precision and doubted a slider suits it. A slider with 1-minute steps across 1–60 is hard to set exactly, especially on a phone; a number field gives exact entry, and the −/+ buttons keep it usable by touch. The cap of 60 matches OpenAI's documented maximum Realtime session length (recorded 2026-07-22), to be re-checked at build time. Remembering the value fixes a quiet annoyance: today every reload resets it to 15.
 
 **Verified:** Docs only. Read `index.html` (`#session-length`: `min="5" max="30" step="5"`), `app.js` (reads the slider at start; never saves it) and `config.js` (`sessionLength: 15`, validated 5–60, otherwise unused).
+
+## 2026-11-25 — Default voice is marin, and lives in the registry (PLAN Stage 3b)
+**Decision:** `DEFAULT_VOICE = 'marin'` in `js/utils/models.js` (`HablaBotModels`). `config.js`'s `realtimeVoice` default, `session.js`'s two voice fallbacks (token request and `session.update`, via `_defaultVoice()`) and `app.js`'s two fallbacks all read it; none hardcodes a voice any more. A voice already saved in Settings is kept, the old `alloy` default included.
+
+**Rationale:** The user's choice. In the 2026-11-24 listening comparison `alloy`, `marin` and `cedar` all passed, and the UI already labels `marin` and `cedar` "recommended". `marin` also sounds female, which fits the base prompt's "María" persona (Stage 3c). `alloy` was hardcoded in five places across four files. The default now lives next to the model IDs, because voice IDs are provider IDs that can change the same way, and a test reads the sources to stop new literals creeping in. Saved voices aren't migrated: the config saves every setting, so a stored `alloy` can't be told apart from a deliberate choice, and overriding a learner's choice would be worse. The user can pick `marin` in Settings.
+
+**Verified:** Tests failed first (7), then passed:
+- `models.test.js`: `DEFAULT_VOICE` is `marin`.
+- `config.test.js`: the default is the registry voice, and a saved `alloy` survives a reload.
+- `realtime-session.test.js`: with no voice passed, both the token request and `session.update` send `marin`.
+- New `default-voice.test.js`: the default is one of the Settings options, and `app.js`, `session.js` and `config.js` contain no voice-ID literal.
+
+Full suite 154/154. Coverage minimums: global statements and lines 36 → 37, `js/realtime/**` functions 84 → 85.

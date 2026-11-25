@@ -77,7 +77,8 @@ every time.
 OpenAI's supported models and Realtime API shapes change often. GPT-4o and 4.1 retire on
 2027-01-14; the Realtime schema changed once already, in July 2026.
 
-- **Never hardcode a model ID outside `js/utils/models.js`** (`HablaBotModels`). Add a role to
+- **Never hardcode a model ID or voice ID outside `js/utils/models.js`** (`HablaBotModels`;
+  the voice default is `DEFAULT_VOICE`, guarded by `tests/default-voice.test.js`). Add a role to
   `DEFAULT_MODELS` and resolve it with `resolveModels(config.get('models'))`. `session.js` takes
   IDs as options and contains none.
 - When a model is deprecated: add its shutdown to `KNOWN_SHUTDOWNS` (this arms the 30-day

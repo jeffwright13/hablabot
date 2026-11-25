@@ -118,8 +118,9 @@ session.
   `<audio>` element. The on-screen AI text is a transcript *of* that audio.
 - Controls:
   - `audio.output.voice` comes from Settings → AI Voice. There are 10 static OpenAI voices, the
-    default is `alloy`, and the UI labels `marin` and `cedar` "recommended". In the 2026-11-24
-    live test the user found all three acceptable; the default may change (PLAN Stage 3b).
+    default is `marin` (`HablaBotModels.DEFAULT_VOICE`, since 2026-11-25; it was `alloy`), and
+    the UI labels `marin` and `cedar` "recommended". A voice saved in Settings is kept, so
+    anyone who saved one before keeps it, the old `alloy` default included.
   - `audio.output.speed` is Settings → Speech Rate. The slider runs 0.5–1.5, and `session.js`
     clamps the value to the API's 0.25–1.5.
   - Volume is applied on the client as `audioEl.volume`, clamped to 0–1.

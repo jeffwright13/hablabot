@@ -22,21 +22,21 @@ export default defineConfig({
       // dreaming-tools' 80/90/90/90. Never lower a number to get a commit
       // through; add the missing tests instead (see docs/TESTING.md).
       thresholds: {
-        statements: 36,
+        statements: 37,
         branches: 81,
         functions: 45,
-        lines: 36,
+        lines: 37,
         // The core conversation path is already well covered. A per-glob
         // floor stops a regression there from hiding behind the large,
         // untested files that dominate the global numbers. Vitest checks this
         // against the COMBINED figure for every file under js/realtime/
-        // (95.4 / 88.02 / 84.61 / 95.4 after Stage 2), not any one file's
+        // (95.48 / 88.51 / 85.19 / 95.48 after Stage 3b), not any one file's
         // row in the report, so that combined figure is what gets rounded
         // down here.
         'js/realtime/**': {
           statements: 95,
           branches: 88,
-          functions: 84,
+          functions: 85,
           lines: 95,
         },
       },
