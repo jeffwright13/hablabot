@@ -305,6 +305,7 @@ arrived. This is the "dynamically deduced" option, and the docs make it nearly f
     following `response.create` isn't refused because a response is still active;
   - **audio playing** (the WebRTC-only `output_audio_buffer.started` → `.stopped` events) gates
     `output_audio_buffer.clear`.
+
   Confirm both event pairs in the current docs before building; if they differ, the tests change
   first.
 - `app.js`: show the typed message in the history right away, and save it in
