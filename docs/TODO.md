@@ -2,7 +2,9 @@
 
 Open items that are not yet designed or scheduled. When an item is decided, record the rationale
 in `DECISIONS.md`, describe the behavior in `SPEC.md`, and remove it from here. Scheduled work
-lives in `PLAN.md`.
+lives in `PLAN.md`; the
+"Feature requests" section below is the exception: it indexes user requests and the PLAN stage
+each one went to.
 
 ## ⭐ Planned: vocabulary practice is coming back
 
@@ -15,7 +17,7 @@ console and reload.
 ## Feature requests (recorded 2026-11-24, scheduled in PLAN)
 
 - **Text input alongside voice:** PLAN Stage 11. Type or speak at any time in the same session
-  (11a), and later a text-only session with no microphone (11b).
+  (11a), and later a typed-only session with no microphone (11b).
 - **Performance feedback:** PLAN Stage 12. Opt-in reply speed and accuracy, for voice and text.
 - Also: listening mode (Stage 9) and dialect selection (Stage 10).
 
