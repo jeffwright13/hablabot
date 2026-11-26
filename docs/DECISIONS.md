@@ -1062,6 +1062,15 @@ Browser check, after rebasing onto the Playwright suite (PR #27):
 - New `tests/browser/silent-transcription.spec.js` (4 tests, fake OpenAI, Playwright's clock): the warning appears after two silent turns, stays after 2 minutes until × is clicked, shows once for four misses, and not after one miss or for turns transcribed as `""`. A mutation check (app.js's `onError` always passing 6000) made the stay-until-closed test fail.
 - PR #22 review: two new session tests drive a real auto-reconnect (peer connection `failed`, reconnect timer). "Doesn't warn again after a reconnect" failed first (2 warnings), then passed; "a reconnect still clears timers and the count" passed throughout. `tests/helpers.test.js`'s text check of `app.js`'s `onError` wiring was dropped: the browser spec covers it end to end, and a harmless reformat would have broken the regex. Full suite 184/184. Manual check before merge: the user heard the tutor in `marin` on a fresh profile in Chrome, 2026-11-28 (deferred from #23).
 
+## 2026-11-25 — Settings rows keep extra items in the control column
+**Decision:** `css/main.css` adds `.setting-item > :nth-child(n+3) { grid-column: 2; }`, and `css/mobile.css`'s `max-width: 768px` block resets it to `grid-column: auto` for its one-column layout. The API key **Test** button gets the `secondary-btn` class, which it lacked (`test-btn` had no rules at all).
+
+**Rationale:** `.setting-item` is a two-column grid (label | control). Rows with a third child (Select User, Test, and the speech rate and volume readouts) wrapped it onto a new row in the left column, under the label. The user found it in Chrome. Firefox only looked right because a password manager injected an element beside the API key field and pushed Test across. That's why it matched no browser difference in the CSS.
+- Rejected: a `button` selector. It misses the readouts.
+- Rejected: wrapping each control and its extra in a container. That's more markup churn for the same result.
+
+**Verified:** new `tests/settings-layout.test.js` reads the CSS and HTML as text. Its 3 tests failed first, then passed: the desktop rule, the mobile reset, and the Test button's class. Full suite 165/165. Coverage is unchanged (CSS and HTML aren't counted). Browser check in Chrome on localhost, 2043px wide: Select User, Test and both readouts line up under their controls. The mobile layout was not viewed.
+
 ## 2026-11-27 — Playwright browser tests: a fake-OpenAI project and an opt-in live project
 **Decision:** Add `@playwright/test` and `playwright.config.js` with two projects over `tests/browser/`:
 - **`app`** (`npm run test:browser`, and a new `browser` job in `.github/workflows/test.yml`) runs the real app against a fake OpenAI. `fake-openai.js` routes `client_secrets` and `/v1/realtime/calls`, blocks every other `api.openai.com` request, and replaces `RTCPeerConnection` with a fake whose data channel tests drive with `emitServerEvent()`. Specs cover startup (including a service-worker reload), the conversation flow, toast layout, and the live layer's synthetic microphone.

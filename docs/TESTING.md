@@ -59,6 +59,7 @@ Current coverage, by module:
 | `sw.js` ↔ `index.html` | `sw-precache.test.js` | precache list must match the loaded scripts; reads both as text |
 | `css/main.css` `.app-version` | `version-label-contrast.test.js` | WCAG AA contrast against both header gradient stops; reads the CSS as text |
 | `css/main.css` toasts | `toast-styles.test.js` | base toast rules exist for every screen size (fixed, above modals, below the header), and each type's colors are literal and meet WCAG AA; reads the CSS as text |
+| `css/main.css` Settings rows | `settings-layout.test.js` | items after a row's label and control stay in the control column (desktop), reset on mobile; the Test button is styled; reads the CSS and HTML as text |
 | `js/app.js` | **none** (unit) | covered end to end by the browser tests (layer 2); a unit harness is planned (`PLAN.md`, Stage 5) |
 | `js/storage/database.js` | **none** | jsdom has no IndexedDB; needs `fake-indexeddb` |
 | `js/utils/helpers.js` | `helpers.test.js` | `showToast` durations, `TOAST_UNTIL_CLOSED`. `app.js`'s `onError` wiring is covered end to end by `tests/browser/silent-transcription.spec.js` |
