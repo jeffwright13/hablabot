@@ -31,8 +31,8 @@ Updated 2026-11-24, after the live test (DECISIONS: neither transcription replac
    builds the `app.js` test harness, which Stage 8 needs.
 8. ⭐ **Stage 8: bring vocabulary practice back.** It's hidden, not abandoned; see below.
 9. **User-requested features:** Stage 9 (listening mode), Stage 10 (dialect selection), Stage
-   11 (text input alongside voice), Stage 12 (performance feedback, opt-in). They're listed in
-   the order requested; the user sets the order.
+   11 (text input alongside voice), Stage 12 (performance feedback, opt-in), Stage 16 (session
+   history). They're listed in the order requested; the user sets the order.
 10. **Stages 6–7:** external TTS spike and evaluation. Deprioritized: the live test found the
    native voices acceptable. Revisit if voice quality becomes a complaint again.
 
@@ -490,6 +490,36 @@ for touch screens, and optionally a few one-tap presets (5 / 10 / 15 / 30).
   non-numbers) and the config validation and persistence (`config.test.js`). The `app.js`
   wiring is a few lines; the timer's minute→second conversion is unchanged.
 - SPEC §2.1 and §5 updated in the same commit.
+
+## Stage 16 — Session history: read back past sessions ⬜ (user request, 2026-11-25)
+
+**Today:** End Session (or the timer) saves each session, with its full `conversationHistory`,
+to the profile's IndexedDB `sessions` store (`HablaBotDB.saveConversationSession`), and
+`getRecentSessions(limit)` already reads them back newest first. **Nothing in the UI shows
+them:** the on-screen history is cleared when a session ends. A session **aborted** by a lost
+connection is discarded unsaved (`app.js` `onStatusChange`, the `meta.unexpected` branch; the
+Stage 5 data-loss item). The user asked for this during the Stage 13a live run, wanting to
+re-read a session they had just finished.
+
+**Proposal:** a **History** view listing past sessions newest first: date and time, scenario,
+difficulty, length, number of turns, and how it ended. Open one to read its transcript, laid out
+like the live conversation history.
+- **Aborted sessions count.** Build on Stage 5's fix (an unexpected disconnect saves the session
+  before clearing it) and record `endReason`: `'ended'`, `'timer'` or `'connection-lost'`, so
+  the list can mark interrupted sessions. Sessions saved before this have no `endReason`; show
+  them as ended.
+- Show turns whose transcript is missing (Stage 13a's silent failure, a cough) as a visible
+  placeholder rather than dropping them, if the saved data allows it.
+- Per profile, since each profile has its own database. Switching profiles reloads the list.
+- **Optional, to be decided when building:** delete one session (with confirmation), and export
+  a transcript as text.
+- Tests first: pure functions for the list summary (length, turn count, end reason) and the
+  transcript rendering (escaping included). `database.js` has no tests yet and jsdom has no
+  IndexedDB, so this needs `fake-indexeddb` (TESTING). Stage 5's `app.js` harness covers the
+  `endReason` wiring.
+- SPEC: a new section for the view. PRIVACY: nothing new is stored, but a delete control changes
+  what the learner can remove; say so.
+- Related: Stage 12 (performance feedback) would read the same saved sessions.
 
 ## Stage 6 — External TTS spike ⏸ (`experiment/external-tts`; deprioritized 2026-11-24: native voices passed the live test)
 
