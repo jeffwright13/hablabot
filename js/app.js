@@ -561,8 +561,8 @@ class HablaBotApp {
       if (this.elements.aiSpeaking) H.hide(this.elements.aiSpeaking);
     };
 
-    this.realtimeSession.onError = (message) => {
-      H.showToast(`❌ ${message}`, 'error', 6000);
+    this.realtimeSession.onError = (message, meta) => {
+      H.showToast(`❌ ${message}`, 'error', meta?.persistent ? H.TOAST_UNTIL_CLOSED : 6000);
       if (message.includes('401') || message.toLowerCase().includes('invalid')) {
         setTimeout(() => this.switchView('settings'), 2000);
       }

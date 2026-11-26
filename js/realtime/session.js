@@ -476,7 +476,9 @@ class RealtimeSession {
       + 'so they won\'t appear in the history (it may not support this kind of session). '
       + 'The tutor can still hear you. Change it in Settings → Advanced.';
     console.warn('RealtimeSession: no transcription event for', this._missedTranscripts, 'consecutive user turns');
-    if (this.onError) this.onError(message);
+    // Persistent: it can arrive while the learner is mid-turn and looking away,
+    // and it's shown only once per connection, so it stays until closed.
+    if (this.onError) this.onError(message, { persistent: true });
   }
 
   // Diagnostic only — logs candidate-pair and packet-count stats at the

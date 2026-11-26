@@ -61,6 +61,7 @@ Current coverage, by module:
 | `css/main.css` toasts | `toast-styles.test.js` | base toast rules exist for every screen size (fixed, above modals, below the header), and each type's colors are literal and meet WCAG AA; reads the CSS as text |
 | `js/app.js` | **none** (unit) | covered end to end by the browser tests (layer 2); a unit harness is planned (`PLAN.md`, Stage 5) |
 | `js/storage/database.js` | **none** | jsdom has no IndexedDB; needs `fake-indexeddb` |
+| `js/utils/helpers.js` | `helpers.test.js` | `showToast` durations, `TOAST_UNTIL_CLOSED`; also checks `app.js`'s `onError` wiring as text (no `app.js` harness yet) |
 | `js/utils/user-manager.js`, `js/ui/*` | **none** | |
 
 ### Coverage
@@ -77,8 +78,8 @@ branches and 90% everything else.
 
 | Scope | Statements | Branches | Functions | Lines | Set |
 |---|---|---|---|---|---|
-| All shipped `js/**` (excluding the unloaded `js/speech/`) | 37 | 82 | 47 | 37 | Stages 3b + 13a (2026-11-25): 37.98 / 82.43 / 47.77 / 37.98. Baseline was 30 / 78.37 / 35.82 / 30 |
-| `js/realtime/**` | 96 | 88 | 87 | 96 | Stages 3b + 13a (2026-11-25): 96.03 / 88.94 / 87.87 / 96.03. Baseline was 94.53 / 87.06 / 83.33 / 94.53 |
+| All shipped `js/**` (excluding the unloaded `js/speech/`) | 38 | 82 | 50 | 38 | Stages 3b + 13a (2026-11-25): 38.73 / 82.46 / 50.63 / 38.73. Baseline was 30 / 78.37 / 35.82 / 30 |
+| `js/realtime/**` | 96 | 88 | 87 | 96 | Stages 3b + 13a (2026-11-25): 96.04 / 88.94 / 87.87 / 96.04. Baseline was 94.53 / 87.06 / 83.33 / 94.53 |
 
 The global numbers are low because `app.js`, `database.js`, `user-manager.js`, `js/ui/*` and the
 dead `audio.js` have no tests. Branch coverage looks high only because untested

@@ -845,6 +845,18 @@ describe('RealtimeSession silent transcription failure (Stage 13a)', () => {
     expect(errors[0]).not.toContain('401');
   });
 
+  it('marks the warning as one to keep on screen until closed (it can arrive mid-turn)', () => {
+    const calls = [];
+    session.onError = (...args) => calls.push(args);
+    userAudioItem('a');
+    vi.advanceTimersByTime(TIMEOUT);
+    userAudioItem('b');
+    vi.advanceTimersByTime(TIMEOUT);
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0][1]).toEqual({ persistent: true });
+  });
+
   it('warns only once per connection', () => {
     for (const id of ['a', 'b', 'c', 'd', 'e']) {
       userAudioItem(id);
