@@ -374,6 +374,18 @@ text input.
   - counting the tutor's recasts.
 
   Pick and validate one before building anything.
+- **More dimensions** (user, 2026-11-25): grammar, vocabulary, clarity, for spoken and typed
+  input. They split by what has to judge them:
+  - **From the transcript** (grammar, vocabulary, sentence accuracy): any text model can review
+    it. **Caveat:** the transcriber normalizes speech, so the transcript can read better than
+    what was said. A grammar score from it is an upper bound for spoken turns.
+  - **Only from the audio** (clarity, pronunciation, fluency): something has to hear the learner.
+    The Realtime model already does, so the cheapest route is **in-session**: a prompt rule for
+    brief, kind recasts or a clarity remark, with no extra cost or data flow (it overlaps Stage
+    3c's prompt work). A **post-session** audio review would mean recording the learner's mic
+    audio, a new kind of stored data and a second upload: a PRIVACY change, needing its own
+    decision.
+  - **Speed:** measurable, as above.
 - **Caution:** visible scores can raise anxiety, which works against the low-pressure practice
   HablaBot is for (BRIEF). So: **off by default, private, and shown as trends over sessions,
   not grades.**
