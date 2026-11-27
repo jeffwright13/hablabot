@@ -7,7 +7,7 @@ import { extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(fileURLToPath(new URL('../..', import.meta.url)));
-const DEFAULT_PORT = 4173;
+const DEFAULT_PORT = 47231;
 const port = Number(process.argv[2] || process.env.PORT || DEFAULT_PORT);
 
 const CONTENT_TYPES = {

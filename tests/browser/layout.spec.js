@@ -64,16 +64,17 @@ for (const colorScheme of ['light', 'dark']) {
 test.describe('toasts on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  // Known bug, PLAN Stage 5 (PR #24 review): mobile.css pins toasts over the
-  // header. test.fail() keeps this running; it starts "failing" (passing)
-  // once fixed, which is the reminder to remove this line.
-  test.fail();
-  test('do not overlap the header', async ({ page }) => {
+  // KNOWN BUG, PLAN Stage 5 (PR #24 review): mobile.css pins toasts over the
+  // header. This asserts the bug as it is today, so a broken selector or a
+  // failed setup fails loudly (test.fail() would have hidden those). When
+  // Stage 5 fixes it, this fails: flip it to "below the header", as on desktop.
+  test('cover the header (known bug: assert it until Stage 5 fixes it)', async ({ page }) => {
     await openApp(page);
     await showToasts(page);
     const header = await page.locator('.app-header').boundingBox();
-    for (const toast of await page.locator('.toast').all()) {
-      expect((await toast.boundingBox()).y).toBeGreaterThanOrEqual(header.y + header.height);
-    }
+    const toasts = page.locator('.toast');
+    await expect(toasts).toHaveCount(4);
+    const firstToast = await toasts.first().boundingBox();
+    expect(firstToast.y).toBeLessThan(header.y + header.height);
   });
 });

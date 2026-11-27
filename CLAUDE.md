@@ -13,8 +13,8 @@ coverage thresholds).
 HablaBot is a **Progressive Web App** for spoken Spanish conversation practice with an AI tutor.
 It runs entirely in the browser: no build system, no bundler, no framework, no backend. All
 JavaScript is loaded by `<script>` tags in `index.html` and exposes globals on `window`.
-`package.json` and `node_modules` exist only for the Vitest suite; they play no part in running
-the app.
+`package.json` and `node_modules` exist only for the test suites (Vitest, and Playwright with its
+static server, `tests/browser/static-server.js`); they play no part in running the app.
 
 What it is, who it's for, and the hard constraints: `docs/BRIEF.md`. How each feature behaves
 today: `docs/SPEC.md`.

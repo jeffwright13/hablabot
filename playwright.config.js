@@ -7,7 +7,9 @@ import { defineConfig, devices } from '@playwright/test';
 //         microphone (tests/browser/live/). Needs OPENAI_API_KEY in the
 //         environment, costs a few cents a run, and is never run in CI.
 // Both are separate from `npm test` (Vitest), which stays fast.
-const PORT = 4173;
+// Not 4173 (vite preview's default): with a server reused there, Playwright
+// would silently test another project's app.
+const PORT = 47231;
 // The live project exists only when asked for (`npm run test:live` sets this).
 // An OPENAI_API_KEY in the environment alone must never start paid runs: a
 // plain `npx playwright test` once did, 2026-11-27.
@@ -36,7 +38,8 @@ export default defineConfig({
   webServer: {
     command: `node tests/browser/static-server.js ${PORT}`,
     url: BASE_URL,
-    reuseExistingServer: !process.env.CI,
+    // Always our own server; a busy port fails loudly instead.
+    reuseExistingServer: false,
   },
   projects: [
     {
@@ -59,6 +62,12 @@ export default defineConfig({
         viewport: { width: 1280, height: 800 },
         // The learner's voice is played into the page by tests/browser/live/
         // speech.js, not a browser flag (see that file for why).
+        // Never record: a trace would hold the token request's Authorization
+        // header (the API key). live-fixtures.js sets this too; the config is
+        // the one place a live spec can't bypass.
+        trace: 'off',
+        screenshot: 'off',
+        video: 'off',
       },
     }] : []),
   ],

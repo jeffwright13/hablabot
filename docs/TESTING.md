@@ -104,7 +104,7 @@ npm run test:live                 # live project: real OpenAI API, costs money (
 ```
 
 These run the real app (`index.html` and every script, unmodified) in Playwright's Chromium,
-served by `tests/browser/static-server.js` on port 4173. They're separate from `npm test`, which
+served by `tests/browser/static-server.js` on port 47231 (never reused: a busy port fails the run). They're separate from `npm test`, which
 stays fast, and from the pre-commit hook. Vitest only collects `*.test.js`; Playwright specs are
 `*.spec.js` under `tests/browser/`.
 
@@ -118,8 +118,8 @@ consumes. No key, no network, no cost.
 |---|---|
 | `startup.spec.js` | init with empty storage and with a saved key; the header shows `package.json`'s version; the service worker installs and a reload under it still initializes |
 | `conversation.spec.js` | the token request and `session.update` carry the default voice and models; user and tutor turns render once each; End Session saves to IndexedDB |
-| `layout.spec.js` | desktop toasts, light and dark: fixed, below the header, nav clickable, still visible after scrolling, four distinct colors. The phone case is marked `test.fail()`: toasts cover the header there (PLAN Stage 5), and the test flips to a failure when that's fixed, so remove the mark then |
-| `speech-microphone.spec.js` | the live layer's synthetic microphone carries faint room noise when idle, and a synthesized phrase and a cough when played. macOS only (skips elsewhere, including CI) |
+| `layout.spec.js` | desktop toasts, light and dark: fixed, below the header, nav clickable, still visible after scrolling, four distinct colors. The phone case asserts a **known bug**: toasts cover the header there (PLAN Stage 5). When that's fixed the test fails; flip it to "below the header" then |
+| `speech-microphone.spec.js` | the live layer's synthetic microphone carries faint room noise when idle, and a synthesized phrase and a cough when played. Only the phrase test needs macOS `say` (it skips elsewhere, including CI) |
 
 **`live` project: the real API, a synthesized learner.** `tests/browser/live/conversation.spec.js`
 holds a real conversation: it waits for the greeting, says four Spanish phrases, coughs, and
@@ -139,8 +139,9 @@ End Session saved the turns. It takes about 1.5 minutes.
 **Live runs cost money and need a deliberate opt-in.** The `live` project exists only when
 `HABLABOT_LIVE=1` (which `npm run test:live` sets), so a plain `npx playwright test` with
 `OPENAI_API_KEY` in the environment runs only the free tests. It also needs macOS with the
-Paulina voice, and skips without either. It records no trace, screenshot or video, because a
-trace would contain the token request's `Authorization` header. A run is one short session,
+Paulina voice, and skips without either. It records no trace, screenshot or video (set in both
+the `live` project and `live-fixtures.js`), because a trace would contain the token request's
+`Authorization` header. A run is one short session,
 likely a few cents. Never run it in CI.
 
 **macOS: `getUserMedia` hangs in Playwright's browsers.** In every Playwright-launched browser

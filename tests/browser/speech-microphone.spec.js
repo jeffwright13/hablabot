@@ -11,7 +11,6 @@ const AUDIBLE_PEAK = 0.05;
 const ROOM_NOISE_MIN_PEAK = 0.0005;
 const ROOM_NOISE_MAX_PEAK = 0.01;
 
-test.skip(!canSynthesizeSpeech(), 'needs macOS `say` with the Paulina (Mexican Spanish) voice');
 
 async function startMeter(page) {
   await page.evaluate(async () => {
@@ -45,7 +44,9 @@ test.describe('speech microphone (live layer plumbing)', () => {
     expect(idlePeak).toBeLessThan(ROOM_NOISE_MAX_PEAK);
   });
 
+  // Only this test needs macOS; the rest is plain Web Audio and runs in CI.
   test('carries a synthesized Spanish phrase', async ({ page }) => {
+    test.skip(!canSynthesizeSpeech(), 'needs macOS `say` with the Paulina (Mexican Spanish) voice');
     await say(page, 'Hola, quiero un café, por favor.');
     expect(await peak(page)).toBeGreaterThan(AUDIBLE_PEAK);
   });
