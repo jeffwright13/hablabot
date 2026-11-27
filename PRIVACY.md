@@ -33,6 +33,16 @@ Check OpenAI's current API data-usage terms; they are not restated here because 
 No other network destinations are contacted. The service worker deliberately bypasses API
 traffic, and it caches only the app's own static files.
 
+## Developers: the automated live test
+
+`npm run test:live` (`docs/TESTING.md`, layer 2) is a developer tool, not part of the app. It
+reads `OPENAI_API_KEY` from the developer's environment into the test browser's localStorage and
+sends **synthesized** speech (macOS `say`, never a person's voice) to OpenAI, so OpenAI receives
+the same kinds of data as in a normal session. The key is never written to disk by the tests:
+the live project records no traces, screenshots or video, and failure logs omit transcripts and
+the key. The free browser tests (`npm run test:browser`) contact no third party: every
+`api.openai.com` request is answered or blocked in the test browser.
+
 ## If a new provider is added
 
 Adding a provider (for example an external text-to-speech service) means new rows in the tables

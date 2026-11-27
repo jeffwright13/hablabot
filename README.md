@@ -187,7 +187,7 @@ hablabot/
 │   ├── ui/                    # UI components & state
 │   └── utils/                 # Config, helpers, audio, per-user profile management
 ├── assets/                    # Icons (placeholder only), sounds, images
-├── tests/                     # Vitest test suite
+├── tests/                     # Vitest test suite; tests/browser/ holds the Playwright specs
 └── docs/                      # BRIEF, SPEC, DECISIONS, PLAN, TODO, TESTING (see Project Docs)
     └── archive/               # Superseded documents, kept for history
 ```
@@ -200,10 +200,13 @@ Development is test-driven: every behavior change starts with a failing Vitest t
 npm test                # run the suite once (also run by the pre-commit hook)
 npm run test:watch
 npm run test:coverage   # suite + coverage with enforced minimums (what CI runs)
+npm run test:browser    # Playwright: the real app against a fake OpenAI (free; CI runs it too)
+npm run test:live       # Playwright: a real conversation with a synthesized voice (macOS; costs money)
 ```
 
-See `docs/TESTING.md` for the test layers, how to install the pre-commit hook, and the manual
-live-voice checklist (a real conversation needs a real API key, so it can't be automated).
+Run `npx playwright install chromium` once before the browser tests. See `docs/TESTING.md` for
+the test layers, how to install the pre-commit hook, and the manual live-voice checklist (accent,
+voice and barge-in still need a human ear).
 
 ## Project Docs
 
