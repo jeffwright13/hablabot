@@ -409,6 +409,10 @@ still to do).** Tests first in
   run with that payload unlogged. The failure is almost certainly server-side, but 13b's
   premise should rest on the reference browser and the logged payload (PR #21 review). Two
   minutes per model; record the result in DECISIONS.
+  **Run 2026-11-27 (Chrome, automated):** both models were kept and returned a transcription
+  event for every turn, and no warning appeared. Whether the events carried text is the next
+  run's question (the spec now logs it). If they do, 13b may reduce to switching
+  `DEFAULT_MODELS.transcription` after a fuller live check.
 
 **13b. Choose and build the replacement.** Re-read OpenAI's models, deprecations and Realtime
 pages first (they change), then compare:

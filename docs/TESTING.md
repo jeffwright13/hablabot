@@ -120,12 +120,18 @@ consumes. No key, no network, no cost.
 | `startup.spec.js` | init with empty storage and with a saved key; the header shows `package.json`'s version; the service worker installs and a reload under it still initializes |
 | `conversation.spec.js` | the token request and `session.update` carry the default voice and models; user and tutor turns render once each; End Session saves to IndexedDB |
 | `layout.spec.js` | desktop toasts, light and dark: fixed, below the header, nav clickable, still visible after scrolling, four distinct colors. The phone case asserts a **known bug**: toasts cover the header there (PLAN Stage 5). When that's fixed the test fails; flip it to "below the header" then |
+| `silent-transcription.spec.js` | Stage 13a on screen: two turns with no transcription event show the warning, which stays until × (Playwright's clock skips the 10 s timeouts); shown once per connection; no warning after one miss or for turns transcribed as `""` |
 | `speech-microphone.spec.js` | the live layer's synthetic microphone carries faint room noise when idle, and a synthesized phrase and a cough when played. Only the phrase test needs macOS `say` (it skips elsewhere, including CI) |
 
 **`live` project: the real API, a synthesized learner.** `tests/browser/live/conversation.spec.js`
 holds a real conversation: it waits for the greeting, says four Spanish phrases, coughs, and
 checks that every phrase was transcribed, the defaults were sent, no error toast appeared, and
 End Session saved the turns. It takes about 1.5 minutes.
+`tests/browser/live/silent-transcription.spec.js` runs a two-turn session for each of
+`gpt-transcribe` and `gpt-live-transcribe` (about 50 s each). It asserts the 13a invariant (no
+transcription events means the warning shows; any means it doesn't) and logs what the server
+kept and the event counts, never the words. Run one file with
+`npm run test:live -- tests/browser/live/silent-transcription.spec.js`.
 - The learner's voice is macOS `say -v Paulina` (Mexican Spanish), rendered to WAV and cached in
   `tests/browser/live/.audio/` (gitignored). `speech.js` replaces `getUserMedia` with a Web Audio
   stream and plays each clip into it, so the real WebRTC connection sends it to OpenAI as it would
