@@ -42,12 +42,28 @@ export function synthesize(text) {
 
 // Runs inside the page before any app script (serialized by Playwright).
 function speechMicrophoneInitScript() {
+  // Faint looping noise, about -55 dBFS: a quiet room. A real microphone is
+  // never digitally silent, and pure silence between clips left the server's
+  // VAD hearing a learner start talking but never stop (live run, 2026-11-27).
+  const ROOM_NOISE_AMPLITUDE = 0.002;
+  const ROOM_NOISE_SECONDS = 2;
   let context;
   let destination;
+  function startRoomNoise(ctx, dest) {
+    const buffer = ctx.createBuffer(1, ctx.sampleRate * ROOM_NOISE_SECONDS, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i += 1) data[i] = (Math.random() * 2 - 1) * ROOM_NOISE_AMPLITUDE;
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+    source.connect(dest);
+    source.start();
+  }
   function graph() {
     if (!context) {
       context = new AudioContext();
       destination = context.createMediaStreamDestination();
+      startRoomNoise(context, destination);
     }
     return { context, destination };
   }

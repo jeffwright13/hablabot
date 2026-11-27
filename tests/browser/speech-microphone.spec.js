@@ -5,7 +5,11 @@ import { test, expect, openApp } from './fixtures.js';
 import { canSynthesizeSpeech, cough, installSpeechMicrophone, say } from './live/speech.js';
 
 const AUDIBLE_PEAK = 0.05;
-const SILENT_PEAK = 0.001;
+// Between clips the mic carries faint room noise, never pure digital silence:
+// a real microphone always picks up some, and the server's VAD needs audio to
+// keep arriving to notice that the learner has stopped talking.
+const ROOM_NOISE_MIN_PEAK = 0.0005;
+const ROOM_NOISE_MAX_PEAK = 0.01;
 
 test.skip(!canSynthesizeSpeech(), 'needs macOS `say` with the Paulina (Mexican Spanish) voice');
 
@@ -34,9 +38,11 @@ test.describe('speech microphone (live layer plumbing)', () => {
     await startMeter(page);
   });
 
-  test('is silent until something is played', async ({ page }) => {
+  test('carries only faint room noise until something is played', async ({ page }) => {
     await page.waitForTimeout(300);
-    expect(await peak(page)).toBeLessThan(SILENT_PEAK);
+    const idlePeak = await peak(page);
+    expect(idlePeak).toBeGreaterThan(ROOM_NOISE_MIN_PEAK);
+    expect(idlePeak).toBeLessThan(ROOM_NOISE_MAX_PEAK);
   });
 
   test('carries a synthesized Spanish phrase', async ({ page }) => {

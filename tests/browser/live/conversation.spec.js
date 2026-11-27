@@ -7,7 +7,7 @@
 // trace would contain the token request's Authorization header.
 import { test, expect, openApp, seedConfig, startLiveConversation } from './live-fixtures.js';
 import { cough, say } from './speech.js';
-import { countReceived, sentOfType, waitForReceived } from './realtime-recorder.js';
+import { countReceived, sentOfType, waitForReceived, waitForTutorToFinish } from './realtime-recorder.js';
 
 const TURN_TIMEOUT_MS = 45_000;
 // Longer than session.js's 10 s transcript timeout, so a missing transcript
@@ -28,6 +28,7 @@ test('default models: every spoken turn is transcribed, a cough raises no warnin
 
   // The tutor greets first.
   await waitForReceived(page, 'response.done', 0, TURN_TIMEOUT_MS);
+  await waitForTutorToFinish(page, TURN_TIMEOUT_MS);
 
   for (const phrase of LEARNER_TURNS) {
     const transcripts = await countReceived(page, 'conversation.item.input_audio_transcription.completed');
@@ -35,6 +36,7 @@ test('default models: every spoken turn is transcribed, a cough raises no warnin
     await say(page, phrase);
     await waitForReceived(page, 'conversation.item.input_audio_transcription.completed', transcripts, TURN_TIMEOUT_MS);
     await waitForReceived(page, 'response.done', replies, TURN_TIMEOUT_MS);
+    await waitForTutorToFinish(page, TURN_TIMEOUT_MS);
   }
 
   await cough(page);

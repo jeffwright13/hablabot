@@ -7,10 +7,31 @@ import { installRealtimeRecorder } from './realtime-recorder.js';
 
 export const test = base.extend({
   // Runs for every live test before the page loads.
-  liveSetup: [async ({ page }, use) => {
+  liveSetup: [async ({ page }, use, testInfo) => {
     await installSpeechMicrophone(page);
     await installRealtimeRecorder(page);
+    const appLog = [];
+    page.on('console', (message) => {
+      if (message.text().startsWith('RealtimeSession:')) appLog.push(message.text());
+    });
     await use();
+    if (testInfo.status !== testInfo.expectedStatus) {
+      // What the connection did, without anyone's words or the key: event
+      // types with counts, error messages, and session.js's own log lines.
+      const summary = await page.evaluate(() => {
+        const recorder = window.__realtimeRecorder;
+        if (!recorder) return null;
+        const count = (events) => events.reduce((acc, e) => ({ ...acc, [e.type]: (acc[e.type] || 0) + 1 }), {});
+        return {
+          sent: count(recorder.sent),
+          received: count(recorder.received),
+          errors: recorder.received.filter((e) => e.type === 'error').map((e) => e.error?.message),
+        };
+      }).catch(() => null);
+      const toasts = await page.locator('.toast').allTextContents().catch(() => []);
+      console.log('Live diagnostics:', JSON.stringify({ ...summary, toasts }, null, 2));
+      console.log('session.js log:\n' + appLog.slice(-30).join('\n'));
+    }
   }, { auto: true }],
 });
 

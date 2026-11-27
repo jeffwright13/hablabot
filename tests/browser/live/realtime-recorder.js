@@ -46,6 +46,24 @@ export async function waitForReceived(page, type, already, timeout) {
   );
 }
 
+/**
+ * Wait until the tutor's audio has finished playing. Over WebRTC the server
+ * reports playback with output_audio_buffer.started, then .stopped (finished)
+ * or .cleared (interrupted). response.done comes earlier, while the audio is
+ * still playing, so speaking right after it barges in on the tutor.
+ */
+export async function waitForTutorToFinish(page, timeout) {
+  await page.waitForFunction(
+    () => {
+      const count = (t) => window.__realtimeRecorder.received.filter((e) => e.type === t).length;
+      return count('output_audio_buffer.started')
+        <= count('output_audio_buffer.stopped') + count('output_audio_buffer.cleared');
+    },
+    undefined,
+    { timeout },
+  );
+}
+
 export function sentOfType(page, type) {
   return page.evaluate((t) => window.__realtimeRecorder.sent.filter((e) => e.type === t), type);
 }
