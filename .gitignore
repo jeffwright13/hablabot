@@ -14,3 +14,8 @@ config/secrets.json
 
 # Coverage reports (npm run test:coverage)
 coverage/
+
+# Playwright (npm run test:browser / test:live)
+playwright-report/
+test-results/
+tests/browser/live/.audio/

@@ -59,7 +59,7 @@ Current coverage, by module:
 | `sw.js` ↔ `index.html` | `sw-precache.test.js` | precache list must match the loaded scripts; reads both as text |
 | `css/main.css` `.app-version` | `version-label-contrast.test.js` | WCAG AA contrast against both header gradient stops; reads the CSS as text |
 | `css/main.css` toasts | `toast-styles.test.js` | base toast rules exist for every screen size (fixed, above modals, below the header), and each type's colors are literal and meet WCAG AA; reads the CSS as text |
-| `js/app.js` | **none** | harness planned (`PLAN.md`, Stage 5) |
+| `js/app.js` | **none** (unit) | covered end to end by the browser tests (layer 2); a unit harness is planned (`PLAN.md`, Stage 5) |
 | `js/storage/database.js` | **none** | jsdom has no IndexedDB; needs `fake-indexeddb` |
 | `js/utils/user-manager.js`, `js/ui/*` | **none** | |
 
@@ -95,7 +95,65 @@ reported step that doesn't block but adds a warning annotation to the PR's check
 advisories stay visible. This is the same policy as dreaming-tools. Every current advisory is in
 Vitest 2 and its tooling, and fixing them needs a major Vitest upgrade (tracked in `TODO.md`).
 
-### 2. Live voice checks (manual)
+### 2. Browser tests (Playwright)
+
+```bash
+npx playwright install chromium   # once, after npm install
+npm run test:browser              # app project: free, ~10 s, also run in CI
+npm run test:live                 # live project: real OpenAI API, costs money (see below)
+```
+
+These run the real app (`index.html` and every script, unmodified) in Playwright's Chromium,
+served by `tests/browser/static-server.js` on port 47231 (never reused: a busy port fails the run). They're separate from `npm test`, which
+stays fast, and from the pre-commit hook. Vitest only collects `*.test.js`; Playwright specs are
+`*.spec.js` under `tests/browser/`.
+
+**`app` project: a fake OpenAI.** `tests/browser/fake-openai.js` answers the token and SDP
+requests with `page.route()`, blocks every other `api.openai.com` request, and replaces
+`RTCPeerConnection` with a fake whose data channel records what the app sends. A test pushes
+server events with `emitServerEvent(page, event)`; `serverEvents` builds the shapes `session.js`
+consumes. No key, no network, no cost.
+
+| Spec | Checks |
+|---|---|
+| `startup.spec.js` | init with empty storage and with a saved key; the header shows `package.json`'s version; the service worker installs and a reload under it still initializes |
+| `conversation.spec.js` | the token request and `session.update` carry the default voice and models; user and tutor turns render once each; End Session saves to IndexedDB |
+| `layout.spec.js` | desktop toasts, light and dark: fixed, below the header, nav clickable, still visible after scrolling, four distinct colors. The phone case asserts a **known bug**: toasts cover the header there (PLAN Stage 5). When that's fixed the test fails; flip it to "below the header" then |
+| `speech-microphone.spec.js` | the live layer's synthetic microphone carries faint room noise when idle, and a synthesized phrase and a cough when played. Only the phrase test needs macOS `say` (it skips elsewhere, including CI) |
+
+**`live` project: the real API, a synthesized learner.** `tests/browser/live/conversation.spec.js`
+holds a real conversation: it waits for the greeting, says four Spanish phrases, coughs, and
+checks that every phrase was transcribed, the defaults were sent, no error toast appeared, and
+End Session saved the turns. It takes about 1.5 minutes.
+- The learner's voice is macOS `say -v Paulina` (Mexican Spanish), rendered to WAV and cached in
+  `tests/browser/live/.audio/` (gitignored). `speech.js` replaces `getUserMedia` with a Web Audio
+  stream and plays each clip into it, so the real WebRTC connection sends it to OpenAI as it would
+  a microphone. The stream carries faint room noise between clips, because a digitally silent
+  mic left the server's VAD hearing speech start but never stop.
+- `realtime-recorder.js` records every data-channel event both ways, so tests wait on events
+  rather than sleeps. Wait for `waitForTutorToFinish()` before speaking: `response.done` arrives
+  while the tutor's audio is still playing, and speaking then barges in.
+- On failure the fixture logs event-type counts, error messages, toast texts and the last
+  `RealtimeSession:` log lines. It never logs transcript text or the key.
+
+**Live runs cost money and need a deliberate opt-in.** The `live` project exists only when
+`HABLABOT_LIVE=1` (which `npm run test:live` sets), so a plain `npx playwright test` with
+`OPENAI_API_KEY` in the environment runs only the free tests. It also needs macOS with the
+Paulina voice, and skips without either. It records no trace, screenshot or video (set in both
+the `live` project and `live-fixtures.js`), because a trace would contain the token request's
+`Authorization` header. A run is one short session,
+likely a few cents. Never run it in CI.
+
+**macOS: `getUserMedia` hangs in Playwright's browsers.** In every Playwright-launched browser
+tried (bundled Chromium headless and headed, installed Chrome, with and without the fake-device
+flags, inside and outside the sandbox) `getUserMedia` never resolved, apparently on the OS
+microphone-permission check. That is why both projects replace it in the page instead of using
+`--use-fake-device-for-media-stream` or `--use-file-for-fake-audio-capture`.
+
+The browser tests replace a few manual checks, not the whole list in layer 3: they can't judge
+the accent, the voice, barge-in feel or Firefox's disconnects.
+
+### 3. Live voice checks (manual)
 
 A real conversation needs a real OpenAI key, a microphone and a browser, so it can't run in CI.
 Run these before merging anything that touches `js/realtime/`, `js/ai/prompts.js`, voice
@@ -133,10 +191,12 @@ before.
       `prefers-color-scheme`). `css/mobile.css` redefines `--white` and the `--gray-*` variables in
       dark mode, so they are theme surface colors, not literal colors.
 
-### 3. Release checklist
+### 4. Release checklist
 
 - [ ] `npm run test:coverage` passes; paste the output into the PR. If coverage rose, raise the
       minimums in `vitest.config.js` to match.
+- [ ] `npm run test:browser` passes. If the change touches `js/realtime/`, prompts or voice
+      settings, also run `npm run test:live` once (it costs money).
 - [ ] Live voice checks done in Chrome (and Firefox if anything in `js/realtime/` changed).
 - [ ] **Model check:** read OpenAI's deprecations page and update the `SPEC.md` §7 table and its
       "last checked" date. Model IDs change often; see `BRIEF.md`.

@@ -211,7 +211,10 @@ Split into two parts, because the dialect is decided but the voice isn't:
 ## Stage 5 — Data-loss fixes and cleanup ⬜
 
 - Build a minimal `tests/app.test.js` harness first: DOM from fixture HTML, stubbed
-  `HablaBotDB` and `RealtimeSession`.
+  `HablaBotDB` and `RealtimeSession`. The Playwright `app` project (TESTING layer 2) can now
+  drive some of these end to end instead, e.g. a disconnect via the fake peer connection, with a
+  real IndexedDB. When toasts stop covering the header on phones, flip the phone test in
+  `tests/browser/layout.spec.js`, which asserts the bug today.
 - Then, test first:
   - an unexpected disconnect saves the session before clearing it;
   - `endConversation()` disconnects even if the save throws;

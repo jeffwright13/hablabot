@@ -13,8 +13,8 @@ coverage thresholds).
 HablaBot is a **Progressive Web App** for spoken Spanish conversation practice with an AI tutor.
 It runs entirely in the browser: no build system, no bundler, no framework, no backend. All
 JavaScript is loaded by `<script>` tags in `index.html` and exposes globals on `window`.
-`package.json` and `node_modules` exist only for the Vitest suite; they play no part in running
-the app.
+`package.json` and `node_modules` exist only for the test suites (Vitest, and Playwright with its
+static server, `tests/browser/static-server.js`); they play no part in running the app.
 
 What it is, who it's for, and the hard constraints: `docs/BRIEF.md`. How each feature behaves
 today: `docs/SPEC.md`.
@@ -57,6 +57,14 @@ every time.
 - A **pre-commit hook** runs `npm test` and blocks the commit if it fails. Git doesn't version
   hooks, so the install snippet is in `docs/TESTING.md`. Never bypass it with `--no-verify`
   unless the user asks.
+- **Browser tests (Playwright)** run the real app: `npm run test:browser` against a fake OpenAI
+  (free, in CI), `npm run test:live` against the real API with a synthesized Spanish voice as the
+  microphone (macOS only). This overrides the global "avoid Playwright" rule for this repo; see
+  DECISIONS 2026-11-27. **`OPENAI_API_KEY` may be set in the environment, so never run
+  `npm run test:live` (or anything with `HABLABOT_LIVE=1`) without the user's OK for that run: it
+  costs money.** Never enable traces, screenshots or video in the `live` project; a trace would
+  hold the key. Details, and why both projects replace `getUserMedia` in the page:
+  `docs/TESTING.md` layer 2.
 - `vitest.config.js` sets `environment: 'jsdom'` globally, because every `js/` file assigns
   `window.HablaBotX` when imported.
 - **New `js/` modules follow the existing pattern:** set one `window.HablaBotX` global, then end
@@ -65,7 +73,7 @@ every time.
   see `js/utils/version.js`.
 - Tests never make real network calls. Stub `fetch`, `RTCPeerConnection`, `getUserMedia`, and
   `indexedDB` (jsdom has none).
-- Anything that needs a real API key, microphone or browser goes on the **manual live checklist**
+- Anything the browser tests can't judge (accent, voice, barge-in feel, Firefox) goes on the **manual live checklist**
   in `docs/TESTING.md`. Run it before merging changes to `js/realtime/`, prompts, voice settings
   or `sw.js`. Use Chrome as the reference browser; Firefox has a known WebRTC disconnect issue.
 - `tests/sw-precache.test.js` fails if `sw.js`'s `STATIC_CACHE_URLS` stops matching the scripts
