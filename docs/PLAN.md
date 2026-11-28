@@ -31,8 +31,8 @@ Updated 2026-11-24, after the live test (DECISIONS: neither transcription replac
    builds the `app.js` test harness, which Stage 8 needs.
 8. ⭐ **Stage 8: bring vocabulary practice back.** It's hidden, not abandoned; see below.
 9. **User-requested features:** Stage 9 (listening mode), Stage 10 (dialect selection), Stage
-   11 (text input alongside voice), Stage 12 (performance feedback, opt-in). They're listed in
-   the order requested; the user sets the order.
+   11 (text input alongside voice), Stage 12 (performance feedback, opt-in), Stage 16 (session
+   history). They're listed in the order requested; the user sets the order.
 10. **Stages 6–7:** external TTS spike and evaluation. Deprioritized: the live test found the
    native voices acceptable. Revisit if voice quality becomes a complaint again.
 
@@ -195,6 +195,8 @@ Split into two parts, because the dialect is decided but the voice isn't:
   be checked live (TESTING checklist). An automated version would need an evaluation harness
   (scripted learner turns against the real model, graded by a rubric), which is possible later
   but has a real cost.
+- **Clarity remarks and recasts** for performance feedback live in Stage 12 ("Only from the
+  audio"): its cheapest route is a prompt rule here, so build the two together.
 - **Persona name and gender.** The base prompt says "Eres María", but every scenario says
   "Eres un/a vendedor/a…". With the Cedar voice the user got a male shopkeeper. Decide whether
   the name follows the selected voice, is dropped, or the scenarios use María's name.
@@ -374,6 +376,18 @@ text input.
   - counting the tutor's recasts.
 
   Pick and validate one before building anything.
+- **More dimensions** (user, 2026-11-25): grammar, vocabulary, clarity, for spoken and typed
+  input. They split by what has to judge them:
+  - **From the transcript** (grammar, vocabulary, sentence accuracy): any text model can review
+    it. **Caveat:** the transcriber normalizes speech, so the transcript can read better than
+    what was said. A grammar score from it is an upper bound for spoken turns.
+  - **Only from the audio** (clarity, pronunciation, fluency): something has to hear the learner.
+    The Realtime model already does, so the cheapest route is **in-session**: a prompt rule for
+    brief, kind recasts or a clarity remark, with no extra cost or data flow (it overlaps Stage
+    3c's prompt work). A **post-session** audio review would mean recording the learner's mic
+    audio, a new kind of stored data and a second upload: a PRIVACY change, needing its own
+    decision.
+  - **Speed:** measurable, as above.
 - **Caution:** visible scores can raise anxiety, which works against the low-pressure practice
   HablaBot is for (BRIEF). So: **off by default, private, and shown as trends over sessions,
   not grades.**
@@ -490,6 +504,45 @@ for touch screens, and optionally a few one-tap presets (5 / 10 / 15 / 30).
   non-numbers) and the config validation and persistence (`config.test.js`). The `app.js`
   wiring is a few lines; the timer's minute→second conversion is unchanged.
 - SPEC §2.1 and §5 updated in the same commit.
+
+## Stage 16 — Session history: read back past sessions ⬜ (user request, 2026-11-25)
+
+**Today:** End Session (or the timer) saves each session, with its full `conversationHistory`,
+to the profile's IndexedDB `sessions` store (`HablaBotDB.saveConversationSession`), and
+`getRecentSessions(limit)` already reads them back newest first. **Nothing in the UI shows
+them:** the on-screen history is cleared when a session ends. A session **aborted** by a lost
+connection is discarded unsaved (`app.js` `onStatusChange`, the `meta.unexpected` branch; the
+Stage 5 data-loss item). The user asked for this during the Stage 13a live run, wanting to
+re-read a session they had just finished.
+
+**Proposal:** a **History** view listing past sessions newest first: date and time, scenario,
+difficulty, length, number of turns, and how it ended. Open one to read its transcript, laid out
+like the live conversation history.
+- **Aborted sessions count.** Build on Stage 5's fix (an unexpected disconnect saves the session
+  before clearing it) and record `endReason`: at least `'ended'`, `'timer'` and
+  `'connection-lost'`, so the list can mark interrupted sessions. Add values as new ways to end a
+  session appear (a typed-only session in Stage 11b, a microphone-permission failure). Sessions saved before this have no `endReason`; show
+  them as ended.
+- **Record turns that never got a transcript**, so History can show a placeholder. Today the saved
+  data doesn't allow it: `conversationHistory` is appended only in `app.js`'s `onUserTranscript`,
+  so such a turn leaves no trace (PR #26 review). Stage 13a's timeout (`session.js`
+  `_onTranscriptMissed`) already notices each one. Tests first: give it a per-turn callback
+  (say `onUserTranscriptMissing(itemId)`) and have `app.js` save
+  `{ speaker: 'user', text: null, missing: true }`. A transcript arriving late for that item
+  replaces the placeholder. A turn transcribed as `""` (a cough, a VAD false start) is noise, not a
+  lost turn, so it isn't saved or shown; revisit if learners want to see them.
+- Per profile, since each profile has its own database. Switching profiles reloads the list.
+- **Optional, to be decided when building:** delete one session (with confirmation), and export
+  a transcript as text.
+- Tests first: pure functions for the list summary (length, turn count, end reason) and the
+  transcript rendering (escaping included). `database.js` has no tests yet and jsdom has no
+  IndexedDB, so this needs `fake-indexeddb` (TESTING). Stage 5's `app.js` harness covers the
+  `endReason` wiring.
+- SPEC: a new section for the view. PRIVACY: nothing new is stored, but both optional controls
+  change where the learner's words can go. Delete changes what they can remove. **Export writes
+  their transcript to a file outside the browser**, a new place their words end up, so PRIVACY
+  must name it if built (PR #26 review).
+- Related: Stage 12 (performance feedback) would read the same saved sessions.
 
 ## Stage 6 — External TTS spike ⏸ (`experiment/external-tts`; deprioritized 2026-11-24: native voices passed the live test)
 
