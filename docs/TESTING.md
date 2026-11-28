@@ -59,6 +59,7 @@ Current coverage, by module:
 | `sw.js` ↔ `index.html` | `sw-precache.test.js` | precache list must match the loaded scripts; reads both as text |
 | `css/main.css` `.app-version` | `version-label-contrast.test.js` | WCAG AA contrast against both header gradient stops; reads the CSS as text |
 | `css/main.css` toasts | `toast-styles.test.js` | base toast rules exist for every screen size (fixed, above modals, below the header), and each type's colors are literal and meet WCAG AA; reads the CSS as text |
+| `css/main.css` Settings rows | `settings-layout.test.js` | items after a row's label and control stay in the control column (desktop), reset on mobile; the Test button is styled; reads the CSS and HTML as text |
 | `js/app.js` | **none** (unit) | covered end to end by the browser tests (layer 2); a unit harness is planned (`PLAN.md`, Stage 5) |
 | `js/storage/database.js` | **none** | jsdom has no IndexedDB; needs `fake-indexeddb` |
 | `js/utils/helpers.js` | `helpers.test.js` | `showToast` durations, `TOAST_UNTIL_CLOSED`. `app.js`'s `onError` wiring is covered end to end by `tests/browser/silent-transcription.spec.js` |
@@ -120,6 +121,7 @@ consumes. No key, no network, no cost.
 | `startup.spec.js` | init with empty storage and with a saved key; the header shows `package.json`'s version; the service worker installs and a reload under it still initializes |
 | `conversation.spec.js` | the token request and `session.update` carry the default voice and models; user and tutor turns render once each; End Session saves to IndexedDB |
 | `layout.spec.js` | desktop toasts, light and dark: fixed, below the header, nav clickable, still visible after scrolling, four distinct colors. The phone case asserts a **known bug**: toasts cover the header there (PLAN Stage 5). When that's fixed the test fails; flip it to "below the header" then |
+| `settings-layout.spec.js` | Settings rows: the Test button, Select User and both readouts sit under their controls at 1280 px, also with an element injected into the key row (Firefox's password manager); one column at 390 px |
 | `silent-transcription.spec.js` | Stage 13a on screen: two turns with no transcription event show the warning, which stays until × (Playwright's clock skips the 10 s timeouts); shown once per connection; no warning after one miss or for turns transcribed as `""` |
 | `speech-microphone.spec.js` | the live layer's synthetic microphone carries faint room noise when idle, and a synthesized phrase and a cough when played. Only the phrase test needs macOS `say` (it skips elsewhere, including CI) |
 

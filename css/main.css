@@ -295,6 +295,13 @@ select:focus, input:focus {
   margin-bottom: var(--spacing-lg);
 }
 
+/* Anything after the label and its control (the Select User and Test
+   buttons, the speech rate and volume readouts) wraps to a new row; keep it
+   in the control column instead of under the label. */
+.setting-item > :nth-child(n+3) {
+  grid-column: 2;
+}
+
 .current-user-display {
   display: flex;
   align-items: center;
