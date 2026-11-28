@@ -1060,7 +1060,7 @@ Full suite 183/183 after rebasing onto Stage 3b and the toast styles (PR #24), a
 
 Browser check, after rebasing onto the Playwright suite (PR #27):
 - New `tests/browser/silent-transcription.spec.js` (4 tests, fake OpenAI, Playwright's clock): the warning appears after two silent turns, stays after 2 minutes until × is clicked, shows once for four misses, and not after one miss or for turns transcribed as `""`. A mutation check (app.js's `onError` always passing 6000) made the stay-until-closed test fail.
-- PR #22 review: two new session tests drive a real auto-reconnect (peer connection `failed`, reconnect timer). "Doesn't warn again after a reconnect" failed first (2 warnings), then passed; "a reconnect still clears timers and the count" passed throughout. `tests/helpers.test.js`'s text check of `app.js`'s `onError` wiring was dropped: the browser spec covers it end to end, and a harmless reformat would have broken the regex. Full suite 184/184.
+- PR #22 review: two new session tests drive a real auto-reconnect (peer connection `failed`, reconnect timer). "Doesn't warn again after a reconnect" failed first (2 warnings), then passed; "a reconnect still clears timers and the count" passed throughout. `tests/helpers.test.js`'s text check of `app.js`'s `onError` wiring was dropped: the browser spec covers it end to end, and a harmless reformat would have broken the regex. Full suite 184/184. Manual check before merge: the user heard the tutor in `marin` on a fresh profile in Chrome, 2026-11-28 (deferred from #23).
 
 ## 2026-11-27 — Playwright browser tests: a fake-OpenAI project and an opt-in live project
 **Decision:** Add `@playwright/test` and `playwright.config.js` with two projects over `tests/browser/`:
