@@ -14,10 +14,13 @@ const LONG_AFTER_MS = 120_000;
 test.describe('silent transcription warning (fake OpenAI)', () => {
   test.beforeEach(async ({ page, fakeOpenAI }) => {
     void fakeOpenAI;
-    await page.clock.install();
     await seedConfig(page);
     await openApp(page);
     await startConversation(page);
+    // Installed only now: the transcript timers start after the conversation
+    // opens. Installed before page load, start-up intermittently stalled under
+    // the fake clock and the data channel never opened (seen 2026-11-28).
+    await page.clock.install();
   });
 
   const warning = (page) => page.locator('.toast.error', { hasText: WARNING });
