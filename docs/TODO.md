@@ -43,10 +43,9 @@ rest are still open.
 ## Model decisions (deadline-driven)
 
 - **Replace `gpt-4o-transcribe` before 2027-02-26 → now PLAN Stage 13.** The no-code live test
-  (2026-11-24, DECISIONS) failed for both documented replacements: `gpt-transcribe` and
-  `gpt-live-transcribe` were accepted by `session.update` but never produced a transcript, and
-  gave no error. So this is a redesign, not a model swap. The options and the silent-failure
-  detection that comes first are in PLAN Stage 13. The tripwire in `tests/models.test.js` fails
+  (2026-11-24, Firefox, DECISIONS) failed for both documented replacements, which suggested a
+  redesign. The automated Chrome live tests of 2026-11-27/28 found both `gpt-transcribe` and
+  `gpt-live-transcribe` transcribing every turn, so a model swap may be enough (PLAN Stage 13b). The tripwire in `tests/models.test.js` fails
   from 2027-01-27 if this is still open.
 
 ## Open issues (GitHub)
@@ -80,8 +79,9 @@ rest are still open.
   been confirmed on every platform.
 - **There are no request timeouts** in `RealtimeSession.connect()`. A hung `client_secrets` or SDP
   request would leave the status at "connecting" with no way out except reloading.
-- **Failed transcriptions are invisible to the learner** (console only), and a transcription
-  model the session doesn't support fails with no event at all. Detection is PLAN Stage 13a.
+- **Per-turn transcription failures are console-only** (`…transcription.failed` that doesn't name
+  the model). A model that never transcribes is now detected (PLAN Stage 13a, SPEC §4), but a
+  single failed turn still just goes missing from the history.
 - **Reconnects lose the model's memory of the conversation.** Replaying `conversationHistory`
   into the new session is possible now that user transcripts work, but hasn't been designed.
 - **Profile cards insert `user.avatar` and `user.id` into `innerHTML`/`onclick` without escaping**

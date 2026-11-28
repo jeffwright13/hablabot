@@ -6,7 +6,8 @@ import { canSynthesizeSpeech, installSpeechMicrophone } from './speech.js';
 import { installRealtimeRecorder } from './realtime-recorder.js';
 
 export const test = base.extend({
-  // Runs for every live test before the page loads.
+  // Runs for every live test before the page loads. A test that asks for
+  // `liveSetup` gets { appLog }: the RealtimeSession: console lines so far.
   liveSetup: [async ({ page }, use, testInfo) => {
     await installSpeechMicrophone(page);
     await installRealtimeRecorder(page);
@@ -14,7 +15,8 @@ export const test = base.extend({
     page.on('console', (message) => {
       if (message.text().startsWith('RealtimeSession:')) appLog.push(message.text());
     });
-    await use();
+    // Tests may read session.js's log lines (no transcript text in them).
+    await use({ appLog });
     if (testInfo.status !== testInfo.expectedStatus) {
       // What the connection did, without anyone's words or the key: event
       // types with counts, error messages, and session.js's own log lines.

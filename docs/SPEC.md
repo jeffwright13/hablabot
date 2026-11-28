@@ -84,7 +84,10 @@ session.
 - The AI's text streams into `#ai-text` and is committed to the history once, when final. An
   identical consecutive final transcript is dropped (`_lastFinalAITranscript`).
 - User transcripts come from `conversation.item.input_audio_transcription.completed` or
-  `conversation.item.done`. Assistant-role items are skipped.
+  `conversation.item.done`. Assistant-role items are skipped. A user audio item normally arrives
+  with `transcript: null` (the transcript follows in its own event), which is not logged. Typed
+  `input_text` items are skipped quietly. Any other shape logs a console warning naming only the
+  content types, never the item's text.
 - Each turn is appended both to the on-screen history and to
   `currentSession.conversationHistory` (`{ speaker, text, timestamp }`).
 - Target-word usage: each user transcript is matched case-insensitively against the target
@@ -138,11 +141,26 @@ session.
 - A failed transcription (`conversation.item.input_audio_transcription.failed`) is logged to the
   console only. The exception is a failure that names the transcription model, which means every
   turn will fail: that one is shown to the learner once per connection (§7, Error handling).
-- **A transcription model this session type doesn't support fails silently** (live test,
-  2026-11-24, `gpt-transcribe` and `gpt-live-transcribe`). `session.update` is accepted, the
-  tutor still hears and answers, but every user item has `transcript: null` and no `completed`,
-  `failed` or `error` event arrives, so the learner's turns never reach the history. Nothing
-  detects this yet (PLAN Stage 13a).
+- **A transcription model the session doesn't support can fail silently.** Seen once, in a
+  Firefox live test on 2026-11-24 with `gpt-transcribe` and `gpt-live-transcribe`:
+  `session.update` was accepted and the tutor still heard and answered, but every user item had
+  `transcript: null` and no `completed`, `failed` or `error` event arrived, so the learner's turns
+  never reached the history. **It didn't reproduce** in automated Chrome live tests on 2026-11-27
+  and 2026-11-28, where both models transcribed every turn (§7). Detection stays, for any model
+  that does this.
+- **Detection (Stage 13a):** each user audio item (`conversation.item.done`, content
+  `input_audio`) starts a 10 s wait (`TRANSCRIPT_TIMEOUT_MS`) for its transcription event. After
+  2 consecutive turns with no event (`MISSED_TRANSCRIPTS_BEFORE_WARNING`), the learner is told
+  once per learner session (an auto-reconnect doesn't repeat it), through `onError` with
+  `{ persistent: true }`, so the toast **stays until closed** (`H.TOAST_UNTIL_CLOSED`; other
+  errors fade after 6 s): "Transcription model "<id>" returned nothing
+  for your last 2 turns… The tutor can still hear you. Change it in Settings → Advanced." It's
+  judged by the event, not the text: a `completed` with `""` (a cough, a VAD false start) or a
+  `failed` resets the count. A transcript that arrives before its `item.done`, or inside it,
+  counts. Pending waits are cleared on disconnect, and each connection, reconnects included, starts a
+  fresh count.
+- `session.updated` is logged with the transcription settings the server confirms
+  (`server confirmed input transcription = …`, or `none`).
 
 ## 5. Settings
 
@@ -225,18 +243,25 @@ connection. Other errors are unchanged. **Not yet confirmed against a real rejec
 the real shape in DECISIONS when one is seen.
 
 ### The transcription replacement is an open decision
-OpenAI names `gpt-live-transcribe` or `gpt-transcribe` as replacements, but neither works as a
-drop-in for this app's session. That's per their model pages, and **confirmed by a live test on
-2026-11-24** (both fail silently, see §4):
+OpenAI names `gpt-live-transcribe` or `gpt-transcribe` as replacements. Their model pages say
+neither is a drop-in for this app's session:
 - `gpt-transcribe` works in a Realtime session only over WebSocket, with manual turn commits.
 - `gpt-live-transcribe` and `gpt-realtime-whisper` work only in transcription-only sessions, and
   `gpt-live-transcribe` doesn't support server VAD.
+
+**Live tests disagree with those pages.** A Firefox run on 2026-11-24 matched them: both models
+were accepted, then produced no transcript (§4). But the automated Chrome runs on 2026-11-27 and
+2026-11-28 (`tests/browser/live/silent-transcription.spec.js`, WebRTC, server VAD) saw the server
+keep each model, and both turns came back `completed` with text and were shown. So a model swap
+may be enough. The default stays `gpt-4o-transcribe` until a fuller check of transcript quality,
+Firefox, and longer sessions (PLAN Stage 13b).
 
 `gpt-live-1.1` (a "full-duplex voice model for multilingual conversations") uses a different API,
 `/v1/live/sessions`. The redesign options are in `PLAN.md` Stage 13.
 
 The model-rejection message above covers only models the API *rejects*. One it accepts but
-doesn't use for this session type gives no error (§4).
+doesn't use for this session type gives no error; the silent-failure detection in §4 covers
+that case.
 
 ## 8. Offline / PWA
 

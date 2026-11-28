@@ -45,7 +45,7 @@ Current coverage, by module:
 
 | Module | Test file | Notes |
 |---|---|---|
-| `js/realtime/session.js` | `realtime-session.test.js` | connect payloads, reconnects, transcript extraction, de-duplication, diagnostics |
+| `js/realtime/session.js` | `realtime-session.test.js` | connect payloads, reconnects, transcript extraction, de-duplication, diagnostics, silent transcription-failure detection (fake timers) |
 | `js/realtime/turn-profiles.js` | `turn-profiles.test.js` | |
 | `js/realtime/session-vocab-bridge.js` | `session-vocab-bridge.test.js` | |
 | `js/vocabulary/manager.js` | `vocabulary-manager.test.js` | |
@@ -61,6 +61,7 @@ Current coverage, by module:
 | `css/main.css` toasts | `toast-styles.test.js` | base toast rules exist for every screen size (fixed, above modals, below the header), and each type's colors are literal and meet WCAG AA; reads the CSS as text |
 | `js/app.js` | **none** (unit) | covered end to end by the browser tests (layer 2); a unit harness is planned (`PLAN.md`, Stage 5) |
 | `js/storage/database.js` | **none** | jsdom has no IndexedDB; needs `fake-indexeddb` |
+| `js/utils/helpers.js` | `helpers.test.js` | `showToast` durations, `TOAST_UNTIL_CLOSED`. `app.js`'s `onError` wiring is covered end to end by `tests/browser/silent-transcription.spec.js` |
 | `js/utils/user-manager.js`, `js/ui/*` | **none** | |
 
 ### Coverage
@@ -77,8 +78,8 @@ branches and 90% everything else.
 
 | Scope | Statements | Branches | Functions | Lines | Set |
 |---|---|---|---|---|---|
-| All shipped `js/**` (excluding the unloaded `js/speech/`) | 37 | 81 | 45 | 37 | Stage 3b (2026-11-25): 37 / 81.4 / 45.69 / 37. Baseline was 30 / 78.37 / 35.82 / 30 |
-| `js/realtime/**` | 95 | 88 | 85 | 95 | Stage 3b (2026-11-25): 95.48 / 88.51 / 85.19 / 95.48. Baseline was 94.53 / 87.06 / 83.33 / 94.53 |
+| All shipped `js/**` (excluding the unloaded `js/speech/`) | 38 | 82 | 50 | 38 | Stages 3b + 13a (2026-11-25): 38.73 / 82.46 / 50.63 / 38.73. Baseline was 30 / 78.37 / 35.82 / 30 |
+| `js/realtime/**` | 96 | 88 | 87 | 96 | Stages 3b + 13a (2026-11-25): 96.04 / 88.94 / 87.87 / 96.04. Baseline was 94.53 / 87.06 / 83.33 / 94.53 |
 
 The global numbers are low because `app.js`, `database.js`, `user-manager.js`, `js/ui/*` and the
 dead `audio.js` have no tests. Branch coverage looks high only because untested
@@ -119,12 +120,18 @@ consumes. No key, no network, no cost.
 | `startup.spec.js` | init with empty storage and with a saved key; the header shows `package.json`'s version; the service worker installs and a reload under it still initializes |
 | `conversation.spec.js` | the token request and `session.update` carry the default voice and models; user and tutor turns render once each; End Session saves to IndexedDB |
 | `layout.spec.js` | desktop toasts, light and dark: fixed, below the header, nav clickable, still visible after scrolling, four distinct colors. The phone case asserts a **known bug**: toasts cover the header there (PLAN Stage 5). When that's fixed the test fails; flip it to "below the header" then |
+| `silent-transcription.spec.js` | Stage 13a on screen: two turns with no transcription event show the warning, which stays until × (Playwright's clock skips the 10 s timeouts); shown once per connection; no warning after one miss or for turns transcribed as `""` |
 | `speech-microphone.spec.js` | the live layer's synthetic microphone carries faint room noise when idle, and a synthesized phrase and a cough when played. Only the phrase test needs macOS `say` (it skips elsewhere, including CI) |
 
 **`live` project: the real API, a synthesized learner.** `tests/browser/live/conversation.spec.js`
 holds a real conversation: it waits for the greeting, says four Spanish phrases, coughs, and
 checks that every phrase was transcribed, the defaults were sent, no error toast appeared, and
 End Session saved the turns. It takes about 1.5 minutes.
+`tests/browser/live/silent-transcription.spec.js` runs a two-turn session for each of
+`gpt-transcribe` and `gpt-live-transcribe` (about 50 s each). It asserts the 13a invariant (no
+transcription events means the warning shows; any means it doesn't) and logs what the server
+kept and the event counts, never the words. Run one file with
+`npm run test:live -- tests/browser/live/silent-transcription.spec.js`.
 - The learner's voice is macOS `say -v Paulina` (Mexican Spanish), rendered to WAV and cached in
   `tests/browser/live/.audio/` (gitignored). `speech.js` replaces `getUserMedia` with a Web Audio
   stream and plays each clip into it, so the real WebRTC connection sends it to OpenAI as it would
@@ -170,7 +177,11 @@ before.
 - [ ] Beginner: a 2-second thinking pause doesn't trigger a reply. Advanced: replies come quickly.
 - [ ] User and AI transcripts each appear exactly once, with the correct speaker. **Check your
       own turns especially:** a transcription model the session doesn't support gives no error
-      at all, just a conversation where only the tutor's lines appear (SPEC §4).
+      event at all. Since Stage 13a the app warns after 2 such turns (a toast naming the model;
+      ~20 s in). The console's `server confirmed input transcription =` line shows what the
+      server kept (SPEC §4).
+- [ ] With the default transcription model, ~5 turns, including a cough: no "returned nothing"
+      warning, and no "unrecognized shape" warnings in the console.
 - [ ] Barge-in: talking over the tutor stops its audio.
 - [ ] The tutor keeps a consistent Mexican accent and vocabulary (e.g. says "departamento", not
       "piso" or "apartamento") across turns and difficulties, and never speaks stage directions.

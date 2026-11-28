@@ -380,14 +380,16 @@ text input.
 
 ## Stage 13 — Transcription after `gpt-4o-transcribe` ⬜ (deadline 2027-02-26; tripwire 2027-01-27)
 
-The live test (DECISIONS 2026-11-24) showed that neither documented replacement works in this
-app's WebRTC + server-VAD session, and that the failure is **silent**: no error, just
-`transcript: null` on every user turn.
+The live test (DECISIONS 2026-11-24, Firefox) showed neither documented replacement working in
+this app's WebRTC + server-VAD session, and that the failure is **silent**: no error, just
+`transcript: null` on every user turn. The Chrome re-runs of 2026-11-27/28 (13a) didn't
+reproduce it: both models transcribed every turn.
 
-**13a. Make a silent transcription failure visible (first; small).** Tests first in
+**13a. Make a silent transcription failure visible ✅ (built 2026-11-25; Chrome re-run
+2026-11-27/28).** Tests first in
 `realtime-session.test.js`, with simulated event sequences:
-- After 2 consecutive user turns (VAD `speech_stopped` plus the user `conversation.item.done`)
-  for which **no transcription event arrives** (neither
+- After 2 consecutive user turns (a user `conversation.item.done` with `input_audio` content; a
+  VAD `speech_stopped` alone doesn't count, see DECISIONS) for which **no transcription event arrives** (neither
   `conversation.item.input_audio_transcription.completed` nor `.failed`) within a timeout (to
   be named; ~10 s), notify the learner **once per connection**, naming the transcription model
   and pointing to Settings → Advanced. That's exactly the live test's signature. Judge by the
@@ -396,7 +398,8 @@ app's WebRTC + server-VAD session, and that the failure is **silent**: no error,
   - a `completed` event resets the count, **even with `""`** (its own test case);
   - `.failed` is already reported separately, so it resets the count too;
   - a late event just inside the timeout doesn't trigger the warning.
-  Pass the timer in, as with `fetchFn`.
+  Uses the global `setTimeout`, like the rest of `session.js`; tests use fake timers (see
+  DECISIONS for why it isn't injected).
 - Remove the "conversation.item.done had no recognizable transcript field" warning when the
   transcript is `null` (normal: it arrives later). Keep it for a genuinely unrecognized shape.
 - Log the `session.updated` event's transcription settings, so a future live test shows
@@ -407,9 +410,16 @@ app's WebRTC + server-VAD session, and that the failure is **silent**: no error,
   run with that payload unlogged. The failure is almost certainly server-side, but 13b's
   premise should rest on the reference browser and the logged payload (PR #21 review). Two
   minutes per model; record the result in DECISIONS.
+  **Done 2026-11-27/28 (Chrome, automated, `tests/browser/live/silent-transcription.spec.js`):**
+  both models were kept, every turn came back `completed` with text and was shown, and no warning
+  appeared. The 2026-11-24 Firefox failure didn't reproduce.
 
-**13b. Choose and build the replacement.** Re-read OpenAI's models, deprecations and Realtime
-pages first (they change), then compare:
+**13b. Choose and build the replacement.** Since 13a's re-run, **option 0 comes first: a model
+swap.** Both `gpt-transcribe` and `gpt-live-transcribe` transcribed in this session in Chrome.
+Compare their transcripts against `gpt-4o-transcribe` on the same synthesized and real speech,
+check Firefox and a full-length session, then switch `DEFAULT_MODELS.transcription` (with
+tests). Only if that fails, re-read OpenAI's models, deprecations and Realtime pages (they
+change) and compare:
 1. **A second, transcription-only Realtime session** fed the same mic track, using
    `gpt-live-transcribe` or `gpt-realtime-whisper` (the documented home for both). Costs a
    second connection and token per session; turns must be matched to the conversation's.

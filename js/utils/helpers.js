@@ -355,6 +355,9 @@ class HablaBotHelpers {
   }
 
   // Toast notifications
+  // Pass as showToast's duration to keep a toast until its close button is clicked.
+  static TOAST_UNTIL_CLOSED = 0;
+
   static showToast(message, type = 'info', duration = 3000) {
     const container = this.$('#toast-container');
     if (!container) return;
@@ -370,7 +373,9 @@ class HablaBotHelpers {
     });
     
     container.appendChild(toast);
-    
+
+    if (duration === this.TOAST_UNTIL_CLOSED) return;
+
     // Auto remove after duration
     setTimeout(() => {
       if (toast.parentElement) {

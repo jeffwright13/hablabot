@@ -617,21 +617,52 @@ describe('RealtimeSession._handleMessage transcript extraction', () => {
     warnSpy.mockRestore();
   });
 
-  it('warns instead of calling onUserTranscript when the transcript is null', () => {
+  // Stage 13a: transcript: null on a user audio item is normal (the
+  // transcript arrives later in its own event), so it must not warn. The
+  // 2026-11-24 live log showed this warning on every single user turn.
+  it('stays quiet when a user audio item arrives with transcript: null', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const received = [];
     session.onUserTranscript = (t) => received.push(t);
 
     session._handleMessage({
       type: 'conversation.item.done',
-      item: { role: 'user', content: [{ type: 'input_audio', transcript: null }] },
+      item: { id: 'item_1', role: 'user', content: [{ type: 'input_audio', transcript: null }] },
     });
 
     expect(received).toEqual([]);
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining('no recognizable transcript field'),
-      expect.any(String)
-    );
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  // PR #20 review: a typed item (PLAN Stage 11a) echoes back with input_text
+  // and no transcript; warning would log the learner's text on every turn.
+  it('stays quiet, and does not treat it as speech, for a user item that is only input_text', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const received = [];
+    session.onUserTranscript = (t) => received.push(t);
+
+    session._handleMessage({
+      type: 'conversation.item.done',
+      item: { id: 'item_t', role: 'user', content: [{ type: 'input_text', text: 'Hola, quiero un café' }] },
+    });
+
+    expect(received).toEqual([]);
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  it('still warns, without logging the item, for a user item of an unrecognized shape', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    session._handleMessage({
+      type: 'conversation.item.done',
+      item: { id: 'item_x', role: 'user', content: [{ type: 'something_new', value: 'private words' }] },
+    });
+
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy.mock.calls[0].join(' ')).toContain('unrecognized');
+    expect(warnSpy.mock.calls[0].join(' ')).not.toContain('private words');
     warnSpy.mockRestore();
   });
 
@@ -755,5 +786,260 @@ describe('RealtimeSession connectivity diagnostics', () => {
     pc.getStats = undefined;
 
     expect(() => pc.setConnectionState('failed')).not.toThrow();
+  });
+});
+
+// PLAN Stage 13a. In the 2026-11-24 live test, gpt-transcribe and
+// gpt-live-transcribe were accepted by session.update and then never sent a
+// transcription event: no completed, no failed, no error. The learner's turns
+// silently vanished from the history. Detection is based on the *event*
+// arriving, not on non-empty text (PR #21 review): coughs, VAD false starts
+// and echo give real turns an empty transcript, which isn't a model failure.
+describe('RealtimeSession silent transcription failure (Stage 13a)', () => {
+  const TIMEOUT = RealtimeSession.TRANSCRIPT_TIMEOUT_MS;
+  let session;
+  let errors;
+
+  function userAudioItem(id) {
+    session._handleMessage({
+      type: 'conversation.item.done',
+      item: { id, role: 'user', content: [{ type: 'input_audio', transcript: null }] },
+    });
+  }
+  function completed(id, transcript) {
+    session._handleMessage({ type: 'conversation.item.input_audio_transcription.completed', item_id: id, transcript });
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    session = new RealtimeSession();
+    session._models = { realtime: 'gpt-realtime-2.1', transcription: 'gpt-transcribe' };
+    errors = [];
+    session.onError = (msg) => errors.push(msg);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('has named constants: a ~10 s timeout and 2 missed turns', () => {
+    expect(TIMEOUT).toBe(10000);
+    expect(RealtimeSession.MISSED_TRANSCRIPTS_BEFORE_WARNING).toBe(2);
+  });
+
+  it('warns once after 2 consecutive user turns get no transcription event', () => {
+    userAudioItem('a');
+    vi.advanceTimersByTime(TIMEOUT);
+    expect(errors).toEqual([]);
+    userAudioItem('b');
+    vi.advanceTimersByTime(TIMEOUT);
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain('"gpt-transcribe"');
+    expect(errors[0]).toContain('Settings → Advanced');
+    // app.js's onError jumps to Settings on messages containing these; this
+    // warning must not end up there mid-conversation.
+    expect(errors[0].toLowerCase()).not.toContain('invalid');
+    expect(errors[0]).not.toContain('401');
+  });
+
+  it('marks the warning as one to keep on screen until closed (it can arrive mid-turn)', () => {
+    const calls = [];
+    session.onError = (...args) => calls.push(args);
+    userAudioItem('a');
+    vi.advanceTimersByTime(TIMEOUT);
+    userAudioItem('b');
+    vi.advanceTimersByTime(TIMEOUT);
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0][1]).toEqual({ persistent: true });
+  });
+
+  it('warns only once per connection', () => {
+    for (const id of ['a', 'b', 'c', 'd', 'e']) {
+      userAudioItem(id);
+      vi.advanceTimersByTime(TIMEOUT);
+    }
+    expect(errors).toHaveLength(1);
+  });
+
+  it('does not warn for a single missed turn', () => {
+    userAudioItem('a');
+    vi.advanceTimersByTime(TIMEOUT * 5);
+    expect(errors).toEqual([]);
+  });
+
+  it('a completed event with an empty transcript resets the count (cough, false start)', () => {
+    userAudioItem('a');
+    vi.advanceTimersByTime(TIMEOUT); // miss 1
+    userAudioItem('b');
+    completed('b', '');               // empty, but the model answered
+    vi.advanceTimersByTime(TIMEOUT);
+    userAudioItem('c');
+    vi.advanceTimersByTime(TIMEOUT); // miss 1 again, not 2
+    expect(errors).toEqual([]);
+  });
+
+  it('a failed event also resets the count (it is reported on its own)', () => {
+    userAudioItem('a');
+    vi.advanceTimersByTime(TIMEOUT);
+    userAudioItem('b');
+    session._handleMessage({
+      type: 'conversation.item.input_audio_transcription.failed',
+      item_id: 'b',
+      error: { message: 'Audio too short.' },
+    });
+    vi.advanceTimersByTime(TIMEOUT);
+    userAudioItem('c');
+    vi.advanceTimersByTime(TIMEOUT);
+    expect(errors).toEqual([]);
+  });
+
+  it('a transcript arriving just inside the timeout is not a miss', () => {
+    userAudioItem('a');
+    vi.advanceTimersByTime(TIMEOUT - 1);
+    completed('a', 'hola');
+    vi.advanceTimersByTime(TIMEOUT);
+    userAudioItem('b');
+    vi.advanceTimersByTime(TIMEOUT);
+    expect(errors).toEqual([]);
+  });
+
+  it('a transcript that arrives before its item.done is not a miss', () => {
+    completed('a', 'hola');
+    userAudioItem('a');
+    vi.advanceTimersByTime(TIMEOUT);
+    userAudioItem('b');
+    vi.advanceTimersByTime(TIMEOUT);
+    expect(errors).toEqual([]);
+  });
+
+  it('a transcript inside item.done itself counts as received', () => {
+    session._handleMessage({
+      type: 'conversation.item.done',
+      item: { id: 'a', role: 'user', content: [{ type: 'input_audio', transcript: 'hola' }] },
+    });
+    vi.advanceTimersByTime(TIMEOUT);
+    userAudioItem('b');
+    vi.advanceTimersByTime(TIMEOUT);
+    expect(errors).toEqual([]);
+  });
+
+  it('ignores assistant items and typed (input_text) items', () => {
+    session._handleMessage({
+      type: 'conversation.item.done',
+      item: { id: 'x', role: 'assistant', content: [{ type: 'output_audio', transcript: 'Hola' }] },
+    });
+    session._handleMessage({
+      type: 'conversation.item.done',
+      item: { id: 'y', role: 'user', content: [{ type: 'input_text', text: 'hola' }] },
+    });
+    vi.advanceTimersByTime(TIMEOUT * 3);
+    expect(errors).toEqual([]);
+  });
+
+  it('remembers only a bounded number of early transcripts over a long session', () => {
+    for (let i = 0; i < 500; i++) completed(`early_${i}`, 'hola');
+    expect(session._transcribedItemIds.size).toBeLessThanOrEqual(RealtimeSession.EARLY_TRANSCRIPT_MEMORY);
+  });
+
+  it('a pending turn does not fire after disconnect', () => {
+    userAudioItem('a');
+    vi.advanceTimersByTime(TIMEOUT);
+    userAudioItem('b');
+    session.disconnect();
+    vi.advanceTimersByTime(TIMEOUT);
+    expect(errors).toEqual([]);
+  });
+
+  it('a new learner session (fresh connect) starts a fresh count and can warn again', async () => {
+    installMocks();
+    await connectAndOpen(session, 'sk-test', { transcriptionModel: 'gpt-transcribe' });
+    userAudioItem('a');
+    vi.advanceTimersByTime(TIMEOUT); // one miss on the first connection
+    session.disconnect();
+
+    await connectAndOpen(session, 'sk-test', { transcriptionModel: 'gpt-transcribe' });
+    userAudioItem('b');
+    vi.advanceTimersByTime(TIMEOUT);
+    expect(errors).toEqual([]);      // the old miss didn't carry over
+    userAudioItem('c');
+    vi.advanceTimersByTime(TIMEOUT);
+    expect(errors).toHaveLength(1);
+  });
+
+  // PR #22 review: the warning stays until closed, so warning again after
+  // every auto-reconnect (routine in Firefox) would stack toasts in one
+  // learner session. A reconnect is driven the real way: the peer connection
+  // fails and the reconnect timer fires.
+  async function dropAndReconnect(pc) {
+    pc.setConnectionState('failed');
+    await vi.advanceTimersByTimeAsync(session._reconnectDelayMs);
+    latestPc().dataChannel.simulateOpen();
+    expect(session.isConnected).toBe(true);
+  }
+
+  it('an auto-reconnect does not warn again in the same learner session', async () => {
+    installMocks();
+    const pc = await connectAndOpen(session, 'sk-test', { transcriptionModel: 'gpt-transcribe' });
+    userAudioItem('a');
+    vi.advanceTimersByTime(TIMEOUT);
+    userAudioItem('b');
+    vi.advanceTimersByTime(TIMEOUT);
+    expect(errors).toHaveLength(1);
+
+    await dropAndReconnect(pc);
+    userAudioItem('c');
+    vi.advanceTimersByTime(TIMEOUT);
+    userAudioItem('d');
+    vi.advanceTimersByTime(TIMEOUT);
+    expect(errors).toHaveLength(1);
+  });
+
+  it('an auto-reconnect still clears pending timers and the miss count', async () => {
+    installMocks();
+    const pc = await connectAndOpen(session, 'sk-test', { transcriptionModel: 'gpt-transcribe' });
+    userAudioItem('a');
+    vi.advanceTimersByTime(TIMEOUT); // one miss before the reconnect
+    userAudioItem('b');              // pending when the connection drops
+
+    await dropAndReconnect(pc);
+    vi.advanceTimersByTime(TIMEOUT); // b's old timer must not fire
+    userAudioItem('c');
+    vi.advanceTimersByTime(TIMEOUT); // one miss after: not two in a row
+    expect(errors).toEqual([]);
+  });
+});
+
+// PLAN Stage 13a: the live test couldn't show whether the server kept the
+// requested transcription model, because session.updated wasn't logged.
+describe('RealtimeSession logs the transcription settings the server confirms', () => {
+  it('logs session.updated\'s audio.input.transcription', () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const session = new RealtimeSession();
+    session._autoGreet = false;
+
+    session._handleMessage({
+      type: 'session.updated',
+      session: { audio: { input: { transcription: { model: 'gpt-transcribe', language: 'es' } } } },
+    });
+
+    const line = logSpy.mock.calls.map(c => c.join(' ')).find(l => l.includes('transcription'));
+    expect(line).toContain('gpt-transcribe');
+    logSpy.mockRestore();
+  });
+
+  it('says so when session.updated carries no transcription settings', () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const session = new RealtimeSession();
+    session._autoGreet = false;
+
+    session._handleMessage({ type: 'session.updated', session: {} });
+
+    const line = logSpy.mock.calls.map(c => c.join(' ')).find(l => l.includes('transcription'));
+    expect(line).toContain('none');
+    logSpy.mockRestore();
   });
 });
