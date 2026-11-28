@@ -1080,6 +1080,8 @@ After rebasing onto the Playwright suite (PR #25 review): new `tests/browser/set
 
 **Verified:** Docs only. Read `js/storage/database.js` (`saveConversationSession`, `getRecentSessions`) and `js/app.js` (`endConversation` saves; the unexpected-disconnect branch clears `currentSession` without saving).
 
+PR #26 review, after rebasing onto #22 and #27: the missing-transcript placeholder had nothing to draw on, because a turn with no transcript is never saved. It's now explicit work, a per-turn callback from 13a's timeout that saves `{ speaker: 'user', text: null, missing: true }`, and `""` turns (coughs) are not shown. The PRIVACY note now names export as well as delete; `endReason` is an open list; Stage 3c links to Stage 12's in-session clarity remarks. Kept the 2026-11-25 date and placed this entry in date order, as with #22's.
+
 ## 2026-11-27 — Playwright browser tests: a fake-OpenAI project and an opt-in live project
 **Decision:** Add `@playwright/test` and `playwright.config.js` with two projects over `tests/browser/`:
 - **`app`** (`npm run test:browser`, and a new `browser` job in `.github/workflows/test.yml`) runs the real app against a fake OpenAI. `fake-openai.js` routes `client_secrets` and `/v1/realtime/calls`, blocks every other `api.openai.com` request, and replaces `RTCPeerConnection` with a fake whose data channel tests drive with `emitServerEvent()`. Specs cover startup (including a service-worker reload), the conversation flow, toast layout, and the live layer's synthetic microphone.
