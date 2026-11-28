@@ -141,10 +141,13 @@ session.
 - A failed transcription (`conversation.item.input_audio_transcription.failed`) is logged to the
   console only. The exception is a failure that names the transcription model, which means every
   turn will fail: that one is shown to the learner once per connection (§7, Error handling).
-- **A transcription model this session type doesn't support fails silently** (live test,
-  2026-11-24, `gpt-transcribe` and `gpt-live-transcribe`). `session.update` is accepted, the
-  tutor still hears and answers, but every user item has `transcript: null` and no `completed`,
-  `failed` or `error` event arrives, so the learner's turns never reach the history.
+- **A transcription model the session doesn't support can fail silently.** Seen once, in a
+  Firefox live test on 2026-11-24 with `gpt-transcribe` and `gpt-live-transcribe`:
+  `session.update` was accepted and the tutor still heard and answered, but every user item had
+  `transcript: null` and no `completed`, `failed` or `error` event arrived, so the learner's turns
+  never reached the history. **It didn't reproduce** in automated Chrome live tests on 2026-11-27
+  and 2026-11-28, where both models transcribed every turn (§7). Detection stays, for any model
+  that does this.
 - **Detection (Stage 13a):** each user audio item (`conversation.item.done`, content
   `input_audio`) starts a 10 s wait (`TRANSCRIPT_TIMEOUT_MS`) for its transcription event. After
   2 consecutive turns with no event (`MISSED_TRANSCRIPTS_BEFORE_WARNING`), the learner is told
@@ -238,12 +241,18 @@ connection. Other errors are unchanged. **Not yet confirmed against a real rejec
 the real shape in DECISIONS when one is seen.
 
 ### The transcription replacement is an open decision
-OpenAI names `gpt-live-transcribe` or `gpt-transcribe` as replacements, but neither works as a
-drop-in for this app's session. That's per their model pages, and **confirmed by a live test on
-2026-11-24** (both fail silently, see §4):
+OpenAI names `gpt-live-transcribe` or `gpt-transcribe` as replacements. Their model pages say
+neither is a drop-in for this app's session:
 - `gpt-transcribe` works in a Realtime session only over WebSocket, with manual turn commits.
 - `gpt-live-transcribe` and `gpt-realtime-whisper` work only in transcription-only sessions, and
   `gpt-live-transcribe` doesn't support server VAD.
+
+**Live tests disagree with those pages.** A Firefox run on 2026-11-24 matched them: both models
+were accepted, then produced no transcript (§4). But the automated Chrome runs on 2026-11-27 and
+2026-11-28 (`tests/browser/live/silent-transcription.spec.js`, WebRTC, server VAD) saw the server
+keep each model, and both turns came back `completed` with text and were shown. So a model swap
+may be enough. The default stays `gpt-4o-transcribe` until a fuller check of transcript quality,
+Firefox, and longer sessions (PLAN Stage 13b).
 
 `gpt-live-1.1` (a "full-duplex voice model for multilingual conversations") uses a different API,
 `/v1/live/sessions`. The redesign options are in `PLAN.md` Stage 13.

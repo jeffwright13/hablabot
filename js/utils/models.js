@@ -20,11 +20,11 @@ const DEFAULT_MODELS = Object.freeze({
   // Input transcription inside that session (session.update ->
   // audio.input.transcription). DEPRECATED: shutdown 2027-02-26 (see
   // KNOWN_SHUTDOWNS). OpenAI names gpt-live-transcribe or gpt-transcribe as
-  // replacements, but neither works in a WebRTC speech-to-speech session with
-  // server VAD: a live test on 2026-11-24 showed both are accepted, then
-  // silently produce no transcript (DECISIONS). Replacing it is a redesign,
-  // docs/PLAN.md Stage 13; the tripwire test in tests/models.test.js fails 30
-  // days before the shutdown.
+  // replacements. A Firefox live test on 2026-11-24 saw both silently produce
+  // no transcript, but automated Chrome live tests on 2026-11-27/28 saw both
+  // transcribe every turn (DECISIONS). Choosing one is docs/PLAN.md Stage 13b;
+  // the tripwire test in tests/models.test.js fails 30 days before the
+  // shutdown.
   transcription: 'gpt-4o-transcribe',
 });
 

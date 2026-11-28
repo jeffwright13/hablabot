@@ -380,12 +380,13 @@ text input.
 
 ## Stage 13 — Transcription after `gpt-4o-transcribe` ⬜ (deadline 2027-02-26; tripwire 2027-01-27)
 
-The live test (DECISIONS 2026-11-24) showed that neither documented replacement works in this
-app's WebRTC + server-VAD session, and that the failure is **silent**: no error, just
-`transcript: null` on every user turn.
+The live test (DECISIONS 2026-11-24, Firefox) showed neither documented replacement working in
+this app's WebRTC + server-VAD session, and that the failure is **silent**: no error, just
+`transcript: null` on every user turn. The Chrome re-runs of 2026-11-27/28 (13a) didn't
+reproduce it: both models transcribed every turn.
 
-**13a. Make a silent transcription failure visible 🔨 (built 2026-11-25; the Chrome re-run below is
-still to do).** Tests first in
+**13a. Make a silent transcription failure visible ✅ (built 2026-11-25; Chrome re-run
+2026-11-27/28).** Tests first in
 `realtime-session.test.js`, with simulated event sequences:
 - After 2 consecutive user turns (a user `conversation.item.done` with `input_audio` content; a
   VAD `speech_stopped` alone doesn't count, see DECISIONS) for which **no transcription event arrives** (neither
@@ -409,13 +410,16 @@ still to do).** Tests first in
   run with that payload unlogged. The failure is almost certainly server-side, but 13b's
   premise should rest on the reference browser and the logged payload (PR #21 review). Two
   minutes per model; record the result in DECISIONS.
-  **Run 2026-11-27 (Chrome, automated):** both models were kept and returned a transcription
-  event for every turn, and no warning appeared. Whether the events carried text is the next
-  run's question (the spec now logs it). If they do, 13b may reduce to switching
-  `DEFAULT_MODELS.transcription` after a fuller live check.
+  **Done 2026-11-27/28 (Chrome, automated, `tests/browser/live/silent-transcription.spec.js`):**
+  both models were kept, every turn came back `completed` with text and was shown, and no warning
+  appeared. The 2026-11-24 Firefox failure didn't reproduce.
 
-**13b. Choose and build the replacement.** Re-read OpenAI's models, deprecations and Realtime
-pages first (they change), then compare:
+**13b. Choose and build the replacement.** Since 13a's re-run, **option 0 comes first: a model
+swap.** Both `gpt-transcribe` and `gpt-live-transcribe` transcribed in this session in Chrome.
+Compare their transcripts against `gpt-4o-transcribe` on the same synthesized and real speech,
+check Firefox and a full-length session, then switch `DEFAULT_MODELS.transcription` (with
+tests). Only if that fails, re-read OpenAI's models, deprecations and Realtime pages (they
+change) and compare:
 1. **A second, transcription-only Realtime session** fed the same mic track, using
    `gpt-live-transcribe` or `gpt-realtime-whisper` (the documented home for both). Costs a
    second connection and token per session; turns must be matched to the conversation's.

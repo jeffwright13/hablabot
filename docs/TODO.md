@@ -43,10 +43,9 @@ rest are still open.
 ## Model decisions (deadline-driven)
 
 - **Replace `gpt-4o-transcribe` before 2027-02-26 → now PLAN Stage 13.** The no-code live test
-  (2026-11-24, DECISIONS) failed for both documented replacements: `gpt-transcribe` and
-  `gpt-live-transcribe` were accepted by `session.update` but never produced a transcript, and
-  gave no error. So this is a redesign, not a model swap. The options and the silent-failure
-  detection that comes first are in PLAN Stage 13. The tripwire in `tests/models.test.js` fails
+  (2026-11-24, Firefox, DECISIONS) failed for both documented replacements, which suggested a
+  redesign. The automated Chrome live tests of 2026-11-27/28 found both `gpt-transcribe` and
+  `gpt-live-transcribe` transcribing every turn, so a model swap may be enough (PLAN Stage 13b). The tripwire in `tests/models.test.js` fails
   from 2027-01-27 if this is still open.
 
 ## Open issues (GitHub)
