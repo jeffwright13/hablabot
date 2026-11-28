@@ -121,6 +121,7 @@ consumes. No key, no network, no cost.
 | `startup.spec.js` | init with empty storage and with a saved key; the header shows `package.json`'s version; the service worker installs and a reload under it still initializes |
 | `conversation.spec.js` | the token request and `session.update` carry the default voice and models; user and tutor turns render once each; End Session saves to IndexedDB |
 | `layout.spec.js` | desktop toasts, light and dark: fixed, below the header, nav clickable, still visible after scrolling, four distinct colors. The phone case asserts a **known bug**: toasts cover the header there (PLAN Stage 5). When that's fixed the test fails; flip it to "below the header" then |
+| `settings-layout.spec.js` | Settings rows: the Test button, Select User and both readouts sit under their controls at 1280 px, also with an element injected into the key row (Firefox's password manager); one column at 390 px |
 | `silent-transcription.spec.js` | Stage 13a on screen: two turns with no transcription event show the warning, which stays until × (Playwright's clock skips the 10 s timeouts); shown once per connection; no warning after one miss or for turns transcribed as `""` |
 | `speech-microphone.spec.js` | the live layer's synthetic microphone carries faint room noise when idle, and a synthesized phrase and a cough when played. Only the phrase test needs macOS `say` (it skips elsewhere, including CI) |
 
