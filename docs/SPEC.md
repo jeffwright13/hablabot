@@ -151,12 +151,14 @@ session.
 - **Detection (Stage 13a):** each user audio item (`conversation.item.done`, content
   `input_audio`) starts a 10 s wait (`TRANSCRIPT_TIMEOUT_MS`) for its transcription event. After
   2 consecutive turns with no event (`MISSED_TRANSCRIPTS_BEFORE_WARNING`), the learner is told
-  once per connection, through `onError` with `{ persistent: true }`, so the toast **stays until
-  closed** (`H.TOAST_UNTIL_CLOSED`; other errors fade after 6 s): "Transcription model "<id>" returned nothing
+  once per learner session (an auto-reconnect doesn't repeat it), through `onError` with
+  `{ persistent: true }`, so the toast **stays until closed** (`H.TOAST_UNTIL_CLOSED`; other
+  errors fade after 6 s): "Transcription model "<id>" returned nothing
   for your last 2 turns… The tutor can still hear you. Change it in Settings → Advanced." It's
   judged by the event, not the text: a `completed` with `""` (a cough, a VAD false start) or a
   `failed` resets the count. A transcript that arrives before its `item.done`, or inside it,
-  counts. Pending waits are cleared on disconnect, and each connection starts a fresh count.
+  counts. Pending waits are cleared on disconnect, and each connection, reconnects included, starts a
+  fresh count.
 - `session.updated` is logged with the transcription settings the server confirms
   (`server confirmed input transcription = …`, or `none`).
 

@@ -134,7 +134,7 @@ class RealtimeSession {
     this._sessionConfigured = false;
     this._models = this._resolveModels(options);
     this._transcriptionModelErrorReported = false;
-    this._resetTranscriptionWatch();
+    this._resetTranscriptionWatch({ keepReported: _isReconnect });
 
     try {
       this._setStatus(_isReconnect ? 'reconnecting' : 'connecting');
@@ -426,12 +426,15 @@ class RealtimeSession {
   // not by non-empty text: a cough or a VAD false start legitimately
   // completes with "" and says nothing about the model.
 
-  _resetTranscriptionWatch() {
+  // keepReported: an auto-reconnect continues the learner's session, and the
+  // warning stays until closed, so it's shown once per session rather than
+  // once per connection (PR #22 review). Timers and the count still reset.
+  _resetTranscriptionWatch({ keepReported = false } = {}) {
     this._clearTranscriptTimers();
     this._transcriptTimers = new Map();   // item id -> timeout handle
     this._transcribedItemIds = new Set(); // ids whose event arrived first
     this._missedTranscripts = 0;
-    this._silentTranscriptionReported = false;
+    if (!keepReported) this._silentTranscriptionReported = false;
   }
 
   _clearTranscriptTimers() {
@@ -477,7 +480,8 @@ class RealtimeSession {
       + 'The tutor can still hear you. Change it in Settings → Advanced.';
     console.warn('RealtimeSession: no transcription event for', this._missedTranscripts, 'consecutive user turns');
     // Persistent: it can arrive while the learner is mid-turn and looking away,
-    // and it's shown only once per connection, so it stays until closed.
+    // and it's shown only once per learner session (auto-reconnects included),
+    // so it stays until closed.
     if (this.onError) this.onError(message, { persistent: true });
   }
 

@@ -61,7 +61,7 @@ Current coverage, by module:
 | `css/main.css` toasts | `toast-styles.test.js` | base toast rules exist for every screen size (fixed, above modals, below the header), and each type's colors are literal and meet WCAG AA; reads the CSS as text |
 | `js/app.js` | **none** (unit) | covered end to end by the browser tests (layer 2); a unit harness is planned (`PLAN.md`, Stage 5) |
 | `js/storage/database.js` | **none** | jsdom has no IndexedDB; needs `fake-indexeddb` |
-| `js/utils/helpers.js` | `helpers.test.js` | `showToast` durations, `TOAST_UNTIL_CLOSED`; also checks `app.js`'s `onError` wiring as text (no `app.js` harness yet) |
+| `js/utils/helpers.js` | `helpers.test.js` | `showToast` durations, `TOAST_UNTIL_CLOSED`. `app.js`'s `onError` wiring is covered end to end by `tests/browser/silent-transcription.spec.js` |
 | `js/utils/user-manager.js`, `js/ui/*` | **none** | |
 
 ### Coverage

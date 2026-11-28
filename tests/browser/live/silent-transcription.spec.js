@@ -10,8 +10,9 @@ import { test, expect, openApp, seedConfig, startLiveConversation } from './live
 import { say } from './speech.js';
 import { countReceived, waitForReceived, waitForTutorToFinish } from './realtime-recorder.js';
 
-// The two documented successors that the 2026-11-24 live test found produce
-// no user transcripts here (DEFAULT_MODELS.transcription in js/utils/models.js).
+// The two documented successors. A Firefox live test on 2026-11-24 saw both
+// produce no user transcripts; these Chrome runs saw both work (DECISIONS
+// 2026-11-28). Kept as a regression check either way.
 const SUSPECT_MODELS = ['gpt-transcribe', 'gpt-live-transcribe'];
 const TURN_TIMEOUT_MS = 45_000;
 // session.js's 10 s transcript timeout, plus margin.

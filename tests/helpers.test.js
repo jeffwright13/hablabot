@@ -1,7 +1,4 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
 import H from '../js/utils/helpers.js';
 
 const TOAST_FADE_MS = 300; // the fade-out before removal in showToast
@@ -34,19 +31,5 @@ describe('H.showToast duration', () => {
 
     container.querySelector('.toast-close').click();
     expect(container.children).toHaveLength(0);
-  });
-});
-
-// app.js has no test harness yet (PLAN Stage 5), so its one line of wiring
-// is checked as text: the session's { persistent: true } flag must reach
-// showToast as TOAST_UNTIL_CLOSED.
-describe('app.js onError wiring', () => {
-  const appJs = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'js', 'app.js'), 'utf8');
-  const handler = appJs.match(/this\.realtimeSession\.onError = \(([^)]*)\) => \{([\s\S]*?)\n    \};/);
-
-  it('takes the meta argument and keeps persistent errors until closed', () => {
-    expect(handler, 'onError handler not found in app.js').not.toBeNull();
-    expect(handler[1]).toMatch(/message,\s*meta/);
-    expect(handler[2]).toMatch(/meta\?\.persistent\s*\?\s*H\.TOAST_UNTIL_CLOSED/);
   });
 });

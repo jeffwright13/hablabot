@@ -954,7 +954,7 @@ describe('RealtimeSession silent transcription failure (Stage 13a)', () => {
     expect(errors).toEqual([]);
   });
 
-  it('a new connection starts a fresh count and can warn again', async () => {
+  it('a new learner session (fresh connect) starts a fresh count and can warn again', async () => {
     installMocks();
     await connectAndOpen(session, 'sk-test', { transcriptionModel: 'gpt-transcribe' });
     userAudioItem('a');
@@ -968,6 +968,48 @@ describe('RealtimeSession silent transcription failure (Stage 13a)', () => {
     userAudioItem('c');
     vi.advanceTimersByTime(TIMEOUT);
     expect(errors).toHaveLength(1);
+  });
+
+  // PR #22 review: the warning stays until closed, so warning again after
+  // every auto-reconnect (routine in Firefox) would stack toasts in one
+  // learner session. A reconnect is driven the real way: the peer connection
+  // fails and the reconnect timer fires.
+  async function dropAndReconnect(pc) {
+    pc.setConnectionState('failed');
+    await vi.advanceTimersByTimeAsync(session._reconnectDelayMs);
+    latestPc().dataChannel.simulateOpen();
+    expect(session.isConnected).toBe(true);
+  }
+
+  it('an auto-reconnect does not warn again in the same learner session', async () => {
+    installMocks();
+    const pc = await connectAndOpen(session, 'sk-test', { transcriptionModel: 'gpt-transcribe' });
+    userAudioItem('a');
+    vi.advanceTimersByTime(TIMEOUT);
+    userAudioItem('b');
+    vi.advanceTimersByTime(TIMEOUT);
+    expect(errors).toHaveLength(1);
+
+    await dropAndReconnect(pc);
+    userAudioItem('c');
+    vi.advanceTimersByTime(TIMEOUT);
+    userAudioItem('d');
+    vi.advanceTimersByTime(TIMEOUT);
+    expect(errors).toHaveLength(1);
+  });
+
+  it('an auto-reconnect still clears pending timers and the miss count', async () => {
+    installMocks();
+    const pc = await connectAndOpen(session, 'sk-test', { transcriptionModel: 'gpt-transcribe' });
+    userAudioItem('a');
+    vi.advanceTimersByTime(TIMEOUT); // one miss before the reconnect
+    userAudioItem('b');              // pending when the connection drops
+
+    await dropAndReconnect(pc);
+    vi.advanceTimersByTime(TIMEOUT); // b's old timer must not fire
+    userAudioItem('c');
+    vi.advanceTimersByTime(TIMEOUT); // one miss after: not two in a row
+    expect(errors).toEqual([]);
   });
 });
 
